@@ -32,7 +32,7 @@ export function EventEntryInfo({
 }) {
   // 하이드레이션 오류 방지를 위한 마운트 상태 관리
   const { status } = useSession();
-  const { event } = useEventStore();
+  const { event, eventOverview, setCourseId, setPaceId } = useEventStore();
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
@@ -84,12 +84,37 @@ export function EventEntryInfo({
     return '신청하기';
   };
 
+  // 이미 신청한 entry (이벤트당 1건). overview로 진입 시 조회됨.
+  const entry = eventOverview?.hasEntry ? eventOverview.entry : null;
+  const entryStatus = entry?.status;
+  // APPLIED(신청완료)/LOST(미당첨) → 신청 불가, RESERVED(미결제)/WON(당첨) → 결제 이어가기
+  const isAlreadyDone = entryStatus === 'APPLIED' || entryStatus === 'LOST';
+  const isPayable = entryStatus === 'RESERVED' || entryStatus === 'WON';
+
+  const doneLabel = () => {
+    if (entryStatus === 'LOST') return '미당첨';
+    return event?.appType === 'LOTTERY' ? '응모 완료' : '신청 완료';
+  };
+
   const handelShowActionCard = () => {
     if (status === 'unauthenticated') {
       setOpenModal(true);
       return;
     }
     setActionCard((prev) => !prev);
+  };
+
+  // RESERVED/WON → 기존 신청의 코스/페이스로 결제 이어가기
+  const handleResumePayment = () => {
+    if (status === 'unauthenticated') {
+      setOpenModal(true);
+      return;
+    }
+    if (entry) {
+      setCourseId(entry.selectedCourseId);
+      setPaceId(entry.selectedPaceId);
+    }
+    router.push(`/ticketing/${event?.id}/payment`);
   };
   const handelShowResultCard = () => {
     if (status === 'unauthenticated') {
@@ -130,16 +155,30 @@ export function EventEntryInfo({
       <div className="mt-auto space-y-3">
         {!actionCard && !isEntry && (
           <div>
-            <Button
-              disabled={
-                event?.status === 'DRAW_COMPLETED' || event?.status === 'END'
-              }
-              variant="primary1"
-              rounded="full"
-              onClick={handelShowActionCard}
-            >
-              {getHeaderText()}
-            </Button>
+            {isAlreadyDone ? (
+              <Button variant="primary1" rounded="full" disabled>
+                {doneLabel()}
+              </Button>
+            ) : isPayable ? (
+              <Button
+                variant="primary1"
+                rounded="full"
+                onClick={handleResumePayment}
+              >
+                결제하기
+              </Button>
+            ) : (
+              <Button
+                disabled={
+                  event?.status === 'DRAW_COMPLETED' || event?.status === 'END'
+                }
+                variant="primary1"
+                rounded="full"
+                onClick={handelShowActionCard}
+              >
+                {getHeaderText()}
+              </Button>
+            )}
           </div>
         )}
 

@@ -16,6 +16,12 @@ export const QueueStatusCard = ({
 
   const isPassed = status.position <= 0;
 
+  // 예상 대기시간: 백엔드 estimatedWaitMs(ms) 우선, 없으면 expectedWaitTime(초)
+  const waitSeconds =
+    status.estimatedWaitMs != null
+      ? Math.ceil(status.estimatedWaitMs / 1000)
+      : (status.expectedWaitTime ?? 0);
+
   const formatTime = (seconds: number) => {
     if (!seconds || seconds < 0) return '00:00';
 
@@ -54,7 +60,7 @@ export const QueueStatusCard = ({
           <IoMdTime className="mr-2" />
           <span className="mr-3">예상 대기 시간</span>
           <span className="font-bold text-black">
-            {isPassed ? '00:00' : formatTime(status.expectedWaitTime)}
+            {isPassed ? '00:00' : formatTime(waitSeconds)}
           </span>
         </div>
 

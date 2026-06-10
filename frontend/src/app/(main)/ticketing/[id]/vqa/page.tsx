@@ -15,11 +15,20 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/components/ui/modal';
+import { useEventStore } from '@/features/event/store/useEventStore';
+import { eventService } from '@/features/event/services';
+import { ticketingService } from '@/features/ticketing/services';
+import { handleEntryError } from '@/features/ticketing/lib/entryErrorHandler';
 
 export default function SecurityAuthPage() {
   const params = useParams();
   const router = useRouter();
+  const eventId = params.id as string;
 
+  const { event, courseId, paceId, queueEnabled, setBotClearToken } =
+    useEventStore();
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
   const [selectedValue, setSelectedValue] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -76,8 +85,8 @@ export default function SecurityAuthPage() {
     return () => clearInterval(timer);
   }, [lives, isSubmitting, showFailModal]);
 
-  const handleSubmit = () => {
-    // 실제 정답 체크 로직 (예시: '1'번이 정답이라고 가정)
+  const handleSubmit = async () => {
+    // VQA(Mock) 정답 체크 — 실제 보안 효력 없음(추후 AI팀 연동)
     const CORRECT_ANSWER = '1';
 
     if (selectedValue !== CORRECT_ANSWER) {
@@ -85,8 +94,47 @@ export default function SecurityAuthPage() {
       return;
     }
 
+    // 코스/페이스 미선택 방어 (직접 진입/새로고침 등)
+    if (courseId == null || paceId == null) {
+      router.replace(`/ticketing/${eventId}`);
+      return;
+    }
+
     setIsSubmitting(true);
-    router.push(`/ticketing/${params.id}/waitQueue`);
+    try {
+      // STEP 8 통과 → 봇 통과 토큰 발급(더미) → 스토어 보관
+      let botToken: string | null = null;
+      const tokenRes = await ticketingService.getBotClearToken();
+      if (tokenRes.success) {
+        botToken = tokenRes.data.botClearToken;
+        setBotClearToken(botToken);
+      }
+
+      if (event?.appType === 'LOTTERY') {
+        // STEP 10-A 응모 신청 → 완료(결제 없음)
+        const res = await eventService.applyEventLottery(
+          eventId,
+          { courseId, paceId },
+          { botToken },
+        );
+        if (res.success) setShowSuccessModal(true);
+      } else {
+        // FIRST_COME — 대기열 활성 이벤트면 대기열로, 아니면 STEP 10-B 바로 신청
+        if (queueEnabled) {
+          router.push(`/ticketing/${eventId}/waitQueue`);
+        } else {
+          const res = await eventService.applyEventFirstCome(
+            eventId,
+            { courseId, paceId },
+            { botToken },
+          );
+          if (res.success) router.replace(`/ticketing/${eventId}/payment`);
+        }
+      }
+    } catch (e) {
+      setIsSubmitting(false);
+      handleEntryError(e, { router, eventId });
+    }
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -319,6 +367,31 @@ export default function SecurityAuthPage() {
                   handleFailure();
                   setShowRefreshModal(false);
                 }}
+              >
+                확인
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      </div>
+
+      {/* 응모(LOTTERY) 완료 모달 */}
+      <div>
+        <Modal open={showSuccessModal}>
+          <ModalContent size="md">
+            <ModalHeader>
+              <ModalTitle className="text-2xl font-bold">
+                응모가 완료되었습니다.
+              </ModalTitle>
+              <ModalDescription>
+                추첨 결과는 마이페이지 및 알림을 통해 안내됩니다.
+              </ModalDescription>
+            </ModalHeader>
+            <ModalFooter>
+              <Button
+                variant="primary1"
+                rounded="full"
+                onClick={() => router.push('/event')}
               >
                 확인
               </Button>
