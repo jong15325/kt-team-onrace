@@ -1,11 +1,26 @@
 import { ApiResponse } from '@/types/api';
-import { OrderCheck, OrderCheckInfo, PaymentConfirm } from '../types';
+import {
+  OrderCheck,
+  OrderCheckInfo,
+  PaymentConfirm,
+  CheckoutInfoResponse,
+  CheckoutResponse,
+  PaymentConfirmResponse,
+  OrderListResponse,
+  OrderDetail,
+} from '../types';
 
 export interface IOrderService {
-  getOrder(): Promise<ApiResponse<void>>;
-  getOrderDetails(id: string): Promise<ApiResponse<void>>;
+  // 주문 내역 (Phase 6)
+  getOrder(tab: string): Promise<ApiResponse<OrderListResponse>>;
+  getOrderDetails(orderNumber: string): Promise<ApiResponse<OrderDetail>>;
   postOrderConfirm(id: string): Promise<ApiResponse<void>>;
-  postOrderCheckout(data: OrderCheck): Promise<ApiResponse<void>>;
-  postOrderCheckoutInfo(data: OrderCheckInfo): Promise<ApiResponse<void>>;
-  postPaymentConfirm(data: PaymentConfirm): Promise<ApiResponse<void>>;
+  // 결제 플로우 (Phase 5)
+  postOrderCheckoutInfo(
+    data: OrderCheckInfo,
+  ): Promise<ApiResponse<CheckoutInfoResponse>>;
+  postOrderCheckout(data: OrderCheck): Promise<ApiResponse<CheckoutResponse>>;
+  postPaymentConfirm(
+    data: PaymentConfirm,
+  ): Promise<ApiResponse<PaymentConfirmResponse>>;
 }
