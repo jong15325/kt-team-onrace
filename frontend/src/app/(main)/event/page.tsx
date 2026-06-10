@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState, useRef } from 'react';
+import { Suspense, useCallback, useEffect, useState, useRef } from 'react';
 import { EventFilter } from '@/features/event/components';
 import { useMarathonFilter } from '@/features/event/hooks';
 import { Course, Event } from '@/features/event/types';
@@ -19,15 +19,18 @@ import { cn } from '@/lib/utils';
 import { LuCircleAlert } from 'react-icons/lu';
 import { formatKoreanDate } from '@/features/ticketing/utils/date';
 
+const PAGE_SIZE = 12;
+
 function EventContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [events, setEvents] = useState<Event[]>([]);
   const { setEvent } = useEventStore();
 
-  // 무한 스크롤 관련 상태
-  const [displayCount, setDisplayCount] = useState(12); // 초기 노출 개수
-  const observerRef = useRef<HTMLDivElement>(null); // 하단 감지용 Ref
+  const [events, setEvents] = useState<Event[]>([]);
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [hasNext, setHasNext] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const observerRef = useRef<HTMLDivElement>(null);
 
   const {
     searchType,
@@ -36,62 +39,72 @@ function EventContent() {
     setSearchDistance,
     setSearchDate,
     setSearchType,
-    filteredEvents,
-  } = useMarathonFilter(events);
+    query,
+  } = useMarathonFilter();
 
-  // 데이터 로드
-  useEffect(() => {
-    const fetchData = async () => {
+  // 서버사이드 조회: cursor 없으면 1페이지(교체), 있으면 다음 페이지(append)
+  const fetchEvents = useCallback(
+    async (cursorParam?: string) => {
+      setLoading(true);
       try {
-        const response = await eventService.getEvents();
-
+        const response = await eventService.getEvents({
+          ...query,
+          size: PAGE_SIZE,
+          cursor: cursorParam,
+        });
         if (response.success) {
-          setEvents(response.data.content);
+          setEvents((prev) =>
+            cursorParam
+              ? [...prev, ...response.data.content]
+              : response.data.content,
+          );
+          setCursor(response.data.nextCursor ?? undefined);
+          setHasNext(response.data.hasNext);
         }
-      } catch (error: any) {
-        throw new Error(error);
+      } catch (error) {
+        console.error('이벤트 조회 실패:', error);
+      } finally {
+        setLoading(false);
       }
-    };
-    fetchData();
-    setCategoryType();
+    },
+    [query],
+  );
+
+  // 필터(query) 변경 시 1페이지부터 재조회
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  // category 쿼리 파라미터 → 타입 필터 (최초 1회)
+  useEffect(() => {
+    const category = searchParams.get('category');
+    if (category) setSearchType(category);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 필터가 변경될 때마다 노출 개수 초기화
-  useEffect(() => {
-    setDisplayCount(12);
-  }, [filteredEvents.length, searchType]);
-
-  // 무한 스크롤 감지 로직
+  // 무한 스크롤: 다음 커서로 추가 로드
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && displayCount < filteredEvents.length) {
-          setDisplayCount((prev) => prev + 12); // 12개씩 추가
+        if (entries[0].isIntersecting && hasNext && !loading) {
+          fetchEvents(cursor);
         }
       },
       { threshold: 1.0 },
     );
-
     if (observerRef.current) observer.observe(observerRef.current);
     return () => observer.disconnect();
-  }, [displayCount, filteredEvents.length]);
-
-  const setCategoryType = () => {
-    const category = searchParams.get('category');
-    if (category) setSearchType(category);
-  };
+  }, [hasNext, loading, cursor, fetchEvents]);
 
   const discountPrice = (price: number, discountRate: number) => {
-    const discountPrice = price * (1 - discountRate / 100);
-    return discountPrice.toLocaleString('ko-KR');
+    const discounted = price * (1 - discountRate / 100);
+    return discounted.toLocaleString('ko-KR');
   };
 
-  const displayStatusLabel = (status: string) => {
-    let displayLabel = '';
-    switch (status) {
-      case 'READY':
-        const dateStr = '2026-03-15T09:00:00';
-        const date = new Date(dateStr);
+  const displayStatusLabel = (event: Event) => {
+    switch (event.status) {
+      case 'READY': {
+        const date = new Date(event.appStartAt);
         const formattedDate = new Intl.DateTimeFormat('ko-KR', {
           month: 'long',
           day: 'numeric',
@@ -99,27 +112,19 @@ function EventContent() {
           minute: 'numeric',
           hour12: false,
         }).format(date);
-        displayLabel = `${formattedDate} ${getStatusLabel(status)}`;
-        break;
-      case 'CLOSING_SOON':
-        displayLabel = `내일 ${getStatusLabel(status)}`;
-        break;
+        return `${formattedDate} ${getStatusLabel('READY')}`;
+      }
       case 'DRAW_COMPLETED':
-        displayLabel = getStatusLabel('END');
-        break;
+        return getStatusLabel('END');
       default:
-        displayLabel = getStatusLabel(status);
+        return getStatusLabel(event.status);
     }
-    return displayLabel;
   };
 
   const handleEventDetail = (event: Event) => {
     setEvent(event);
     router.push(`/ticketing/${event.id}`);
   };
-
-  // 실제로 렌더링할 데이터만 슬라이싱
-  const visibleEvents = filteredEvents.slice(0, displayCount);
 
   return (
     <div className="max-w-7xl mx-auto min-h-screen bg-primary1 px-30">
@@ -159,18 +164,24 @@ function EventContent() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {visibleEvents.map((event) => (
+          {events.map((event) => (
             <div
               key={event.id}
               className="flex flex-col bg-white rounded-md overflow-hidden hover:shadow-lg cursor-pointer"
               onClick={() => handleEventDetail(event)}
             >
-              <div className="relative aspect-[16/16] overflow-hidden">
-                <img
-                  src={event.thumbnailImg.url}
-                  alt={'이벤트'}
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
+              <div className="relative aspect-[16/16] overflow-hidden bg-gray-100">
+                {event.thumbnailImg?.url ? (
+                  <img
+                    src={event.thumbnailImg.url}
+                    alt={'이벤트'}
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-gray-300 text-sm">
+                    이미지 준비중
+                  </div>
+                )}
                 <div className="absolute top-2 left-2">
                   <span className="px-2 py-1 rounded-xs bg-black text-font-accent text-xs">
                     {getTypeLabel(event.type)}
@@ -190,7 +201,7 @@ function EventContent() {
                         getStatusConfig(event.status),
                       )}
                     >
-                      {displayStatusLabel(event.status)}
+                      {displayStatusLabel(event)}
                     </div>
                     <h2 className="font-bold text-black text-xl leading-tight truncate">
                       {event.title}
@@ -227,7 +238,7 @@ function EventContent() {
         {/* 무한 스크롤 트리거 요소 */}
         <div ref={observerRef} className="h-10" />
 
-        {filteredEvents.length === 0 && (
+        {events.length === 0 && !loading && (
           <div className="text-center p-30 bg-white">
             <LuCircleAlert className="mx-auto text-gray-300 mb-4" size={48} />
             <p className="text-font-medium font-medium text-lg">
