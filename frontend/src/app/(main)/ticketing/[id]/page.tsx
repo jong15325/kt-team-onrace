@@ -18,10 +18,12 @@ import { useDetailedTracker } from '@/features/ticketing/hooks/useDetailedTracke
 import { collectFingerprint } from '@/lib/fingerprint';
 import { ActionCardPage } from '@/features/ticketing/components/details/entry/ActionCardPage';
 import { ResultCardPage } from '@/features/ticketing/components/details/entry/ResultCardPage';
+import { EventAdminPanel } from '@/features/ticketing/components/EventAdminPanel';
 
 export default function MarathonDetailPage() {
   const params = useParams();
-  const { event, eventDetails, setEventDetails } = useEventStore();
+  const { event, eventDetails, setEventDetails, setEventOverview } =
+    useEventStore();
 
   const [mounted, setMounted] = useState<boolean>(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -107,6 +109,14 @@ export default function MarathonDetailPage() {
           if (response.success) {
             setEventDetails(response.data);
           }
+
+          // 참여 정보(이미 신청 여부/상태) 조회 — 상세 진입(뷰) 시점
+          eventService
+            .getEventOverview(eventId)
+            .then((res) => {
+              if (res.success) setEventOverview(res.data);
+            })
+            .catch(() => {});
         }
       } catch (error) {
         console.error('데이터 로드 실패:', error);
@@ -196,6 +206,8 @@ export default function MarathonDetailPage() {
 
           {/* 우측: 참여 정보 카드 (Sidebar) */}
           <div className="w-full lg:w-[360px]">
+            {/* [데모/관리] 대기열 토글 + 재고/신청 초기화 */}
+            <EventAdminPanel eventId={String(params.id)} />
             <div
               className={cn(!actionCard && !resultCard && 'sticky top-5 h-fit')}
             >

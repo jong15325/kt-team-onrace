@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { UserConfirmModal } from './UserConfirmModal';
 import { AgreeConfirmModal } from './AgreeConfirmModal';
+import { myPageService } from '@/features/mypage/services';
 // import { VqaModal } from './VqaModal';
 
 export function EntryConfirmModal({
@@ -23,17 +24,37 @@ export function EntryConfirmModal({
   const [isAgreeModalOpen, setIsAgreeModalOpen] = useState(false);
   // const [isVqaModalOpen, setIsVqaModalOpen] = useState(false);
 
-  const userData = {
-    name: '김유저',
-    birthDate: '1995.01.15',
-    gender: '남성',
-    phone: '010-1234-5678',
-    email: 'hong @example.com',
-  };
+  const [userData, setUserData] = useState({
+    name: '-',
+    birthDate: '-',
+    gender: '-',
+    phone: '-',
+    email: '-',
+  });
 
-  // 컴포넌트가 마운트된 후에만 렌더링을 허용
+  // 컴포넌트가 마운트된 후에만 렌더링을 허용 + 참가자 정보 조회
   useEffect(() => {
     setMounted(true);
+    myPageService
+      .getAccountInfo()
+      .then((res) => {
+        if (res.success) {
+          const formatPhone = (p?: string) =>
+            p
+              ? p
+                  .replace(/[^0-9]/g, '')
+                  .replace(/^(\d{2,3})(\d{3,4})(\d{4})$/, '$1-$2-$3')
+              : '-';
+          setUserData({
+            name: res.data.name ?? '-',
+            birthDate: '-', // account API 미노출
+            gender: '-', // account API 미노출
+            phone: formatPhone(res.data.phoneNumber),
+            email: res.data.email ?? '-',
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // 아직 마운트되지 않았다면 껍데기(Skeleton) 혹은 null 반환

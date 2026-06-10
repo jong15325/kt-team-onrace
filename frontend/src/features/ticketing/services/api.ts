@@ -1,30 +1,37 @@
-import axios from 'axios';
-import { wrapMockResponse } from '@/utils/api';
-import { ITicketingService } from './interface';
+import { apiClient } from '@/lib/apiClient';
+import { ITicketingService, BotTokenOption } from './interface';
 
-// Next.js API Route를 호출하기 위한 인스턴스
-const apiClient = axios.create({
-  // 상대 경로를 사용하면 브라우저에서는 현재 도메인(localhost:3000 등)을 자동으로 사용합니다.
-  baseURL: '/api',
-  headers: { 'Content-Type': 'application/json' },
-});
+/** 봇 통과 토큰을 요청 헤더로 변환 */
+const botHeaders = (opts?: BotTokenOption) =>
+  opts?.botToken ? { 'Bot-Clear-Token': opts.botToken } : {};
 
 export const ticketingApi: ITicketingService = {
-  enterQueue: async (data) => {
-    const response = await apiClient.post('/queue/enter', data);
+  getBotClearToken: async () => {
+    const response = await apiClient.get('/bot/clear-token');
     return response.data;
   },
-
-  getQueueStatus: async (data) => {
-    const response = await apiClient.get(`/queue/status`, {
-      params: data,
+  enterQueue: async (data, opts) => {
+    const response = await apiClient.post('/queue/enter', data, {
+      headers: botHeaders(opts),
     });
     return response.data;
   },
-  leaveQueue: async (data) => {
-    const response = await apiClient.delete(`/queue/leave`, {
+  getQueueStatus: async (data, opts) => {
+    const response = await apiClient.get('/queue/status', {
       params: data,
+      headers: botHeaders(opts),
     });
+    return response.data;
+  },
+  leaveQueue: async (data, opts) => {
+    const response = await apiClient.delete('/queue/leave', {
+      params: data,
+      headers: botHeaders(opts),
+    });
+    return response.data;
+  },
+  seedQueue: async (data) => {
+    const response = await apiClient.post('/queue/demo/seed', data);
     return response.data;
   },
 };

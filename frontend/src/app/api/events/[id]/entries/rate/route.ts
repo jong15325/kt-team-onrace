@@ -13,13 +13,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    // 클라이언트로부터 전달받은 쿼리 파라미터 추출
     const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const queryParams = Object.fromEntries(searchParams.entries());
 
-    // 실제 외부 백엔드 서버로 요청 전달
-    const response = await backendClient.get(`/events/${id}/overview`);
+    // 경쟁률 조회 (공개) — courseId/paceId 쿼리 전달
+    const response = await backendClient.get(`/events/${id}/entries/rate`, {
+      params: queryParams,
+    });
 
-    // 백엔드로부터 받은 데이터를 그대로 클라이언트에 반환
     return NextResponse.json(response.data);
   } catch (error: any) {
     return handleApiError(error);

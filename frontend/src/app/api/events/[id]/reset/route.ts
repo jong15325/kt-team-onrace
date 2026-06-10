@@ -3,11 +3,10 @@ import { handleApiError } from '@/utils/api';
 import { mainServerClient, serverAuthHeader } from '@/utils/backend';
 
 /**
- * 참여 정보 확인 (hasEntry/entry.status/courses/rateInfo).
- * 인증은 선택 — 로그인 시 serverAuthHeader로 토큰 전달 → 게이트웨이가 X-User-Id 주입 → hasEntry 정확.
- * 비로그인 시 hasEntry=false.
+ * [데모/관리] 이벤트 신청 전체 초기화 (신청+재고+대기열).
+ * 파괴적 동작 — 포트폴리오 데모용.
  */
-export async function GET(
+export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -15,8 +14,9 @@ export async function GET(
     const { id } = await params;
     const auth = await serverAuthHeader();
 
-    const response = await mainServerClient.get(
-      `/events/${id}/entries/overview`,
+    const response = await mainServerClient.post(
+      `/events/${id}/reset`,
+      undefined,
       { headers: { ...auth } },
     );
 
