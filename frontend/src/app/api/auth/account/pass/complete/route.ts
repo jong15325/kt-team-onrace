@@ -2,14 +2,16 @@ import { NextResponse } from 'next/server';
 import { handleApiError } from '@/utils/api';
 import { accountServerClient, serverAuthHeader } from '@/utils/backend';
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    // NextAuth 세션의 액세스 토큰을 게이트웨이로 전달 → 게이트웨이가 X-User-Id 주입
+    const body = await request.json();
     const authHeader = await serverAuthHeader();
 
-    const response = await accountServerClient.post('/logout', null, {
-      headers: authHeader,
-    });
+    const response = await accountServerClient.post(
+      '/account/pass/complete',
+      body,
+      { headers: authHeader },
+    );
 
     return NextResponse.json(response.data);
   } catch (error: any) {

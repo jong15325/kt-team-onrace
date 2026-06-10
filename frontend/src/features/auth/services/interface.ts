@@ -18,6 +18,8 @@ import {
   SmsVerifyCodeRequest,
   Term,
   TermDetails,
+  PasswordChangeRequest,
+  PassCompleteRequest,
 } from '../types';
 
 export interface IAuthService {
@@ -57,5 +59,12 @@ export interface IAuthService {
 
   // SMS 인증 API
   sendSmsCode(data: SmsSendCodeRequest): Promise<ApiResponse<null>>;
+  sendSmsCodeForFind(data: SmsSendCodeRequest): Promise<ApiResponse<null>>;
   verifySmsCode(data: SmsVerifyCodeRequest): Promise<ApiResponse<null>>;
+
+  // 계정 관리 API (로그인 사용자)
+  changePassword(data: PasswordChangeRequest): Promise<ApiResponse<null>>;
+  completePassVerification(
+    data: PassCompleteRequest,
+  ): Promise<ApiResponse<null>>;
 }

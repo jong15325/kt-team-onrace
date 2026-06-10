@@ -13,7 +13,7 @@ export default function SignupForm() {
   const router = useRouter();
   const [code, setCode] = useState<string>('');
   const isSent = useRef(false);
-  const { email, password, phoneNumber } = useSignupStore();
+  const { email, password, phoneNumber, termAgreements } = useSignupStore();
 
   useEffect(() => {
     // 보안 체크: 이메일 정보가 없으면 가입 페이지로 돌려보냄 (직접 URL 접근 차단)
@@ -45,32 +45,42 @@ export default function SignupForm() {
   }, [email, router]);
 
   const handleFinalSignup = async () => {
+    // 약관 동의 단계를 건너뛰어 정보가 비어있으면 raw 400 대신 약관 페이지로 안내
+    if (!email || termAgreements.length === 0) {
+      alert('약관 동의가 필요합니다. 약관 동의 단계부터 다시 진행해 주세요.');
+      router.push('/signup/email/agree');
+      return;
+    }
+
     try {
       const veriftEmailResponse = await authService.verifyEmailCode({
         email,
         code,
       });
 
-      if (veriftEmailResponse.success) {
-        const data = {
-          email: email,
-          password: password,
-          phoneNumber: phoneNumber,
-          termAgreements: [
-            {
-              termVersionId: 0,
-              agreed: true,
-            },
-          ],
-        };
-        const signupResponse = await authService.signup(data);
-
-        if (signupResponse.success) {
-          router.push('/signup/success');
-        }
+      if (!veriftEmailResponse.success) {
+        alert('인증번호가 올바르지 않거나 만료되었습니다.');
+        return;
       }
-    } catch (error) {
-      console.error('회원가입 실패', error);
+
+      const data = {
+        email: email,
+        password: password,
+        phoneNumber: phoneNumber,
+        // 약관 동의 페이지에서 수집한 실제 약관 ID/동의값 사용
+        termAgreements: termAgreements,
+      };
+      const signupResponse = await authService.signup(data);
+
+      if (signupResponse.success) {
+        router.push('/signup/success');
+      }
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.message ??
+        '회원가입에 실패했습니다. 다시 시도해 주세요.';
+      console.error('회원가입 실패:', error?.response?.data ?? error?.message);
+      alert(msg);
     }
   };
 

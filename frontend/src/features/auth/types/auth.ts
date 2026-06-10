@@ -22,6 +22,7 @@ declare module 'next-auth/jwt' {
     springRefreshToken?: string;
     isUnregistered?: boolean;
     userRole?: string;
+    loginType?: 'local' | 'social';
   }
 }
 
@@ -106,6 +107,16 @@ export interface AccessTokenRequest {
 export interface AccessTokenResponse {
   accessToken: string;
   expiresIn: number;
+}
+
+export interface PasswordChangeRequest {
+  currentPassword: string;
+}
+
+export interface PassCompleteRequest {
+  name: string;
+  gender?: 'MALE' | 'FEMALE';
+  birthdate?: string; // YYYY-MM-DD
 }
 
 export interface EmailSendCodeRequest {

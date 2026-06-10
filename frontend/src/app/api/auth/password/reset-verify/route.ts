@@ -14,7 +14,9 @@ export async function GET(request: Request) {
     const params = Object.fromEntries(searchParams.entries());
 
     // 실제 외부 백엔드 서버로 요청 전달
-    const response = await backendClient.get('/password/reset-verify', params);
+    const response = await backendClient.get('/password/reset-verify', {
+      params,
+    });
 
     // 백엔드로부터 받은 데이터를 그대로 클라이언트에 반환
     return NextResponse.json(response.data);

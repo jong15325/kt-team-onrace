@@ -7,19 +7,69 @@ import { authService } from '@/features/auth/services';
 import { useState } from 'react';
 import { LuPhone } from 'react-icons/lu';
 
-export default function LoginSuccess() {
+export default function FindAccount() {
   const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [code, setCode] = useState<string>('');
+  const [resultMsg, setResultMsg] = useState<string>('');
+  const [resultOk, setResultOk] = useState<boolean | null>(null);
 
-  const handleFindAccount = async () => {
+  // 인증번호 발송 (가입된 번호에만 발송 / 응답은 항상 동일 - 열거 방지)
+  const handleSendCode = async () => {
+    const normalizedPhone = phoneNumber.replace(/\D/g, '');
+    if (!normalizedPhone) {
+      setResultOk(false);
+      setResultMsg('휴대폰 번호를 입력해주세요.');
+      return;
+    }
     try {
-      const response = await authService.findAccount({ phoneNumber });
+      await authService.sendSmsCodeForFind({ phoneNumber: normalizedPhone });
+      setResultOk(true);
+      setResultMsg('인증번호를 발송하였습니다. (가입된 번호인 경우)');
+    } catch {
+      setResultOk(false);
+      setResultMsg('에러가 발생하였습니다, 재시도 해주세요');
+    }
+  };
 
-      if (response.success) {
-        router.push('/find/account/result');
+  // 인증번호 검증 후 가입 이메일 조회
+  const handleFindAccount = async () => {
+    const normalizedPhone = phoneNumber.replace(/\D/g, '');
+    if (!normalizedPhone || !code) {
+      setResultOk(false);
+      setResultMsg('휴대폰 번호와 인증번호를 입력해주세요.');
+      return;
+    }
+    try {
+      // 1) SMS 인증 (검증 성공 시 서버에 인증 플래그 설정)
+      const verifyResponse = await authService.verifySmsCode({
+        phoneNumber: normalizedPhone,
+        code,
+      });
+      if (!verifyResponse.success) {
+        setResultOk(false);
+        setResultMsg('인증번호가 올바르지 않거나 만료되었습니다.');
+        return;
       }
-    } catch (error) {
-      console.error('데이터 로드 실패:', error);
+
+      // 2) 가입 이메일(마스킹) 조회
+      const response = await authService.findAccount({
+        phoneNumber: normalizedPhone,
+      });
+      if (response.success && response.data) {
+        router.push(
+          `/find/account/result?email=${encodeURIComponent(response.data.email)}`,
+        );
+      } else {
+        setResultOk(false);
+        setResultMsg('가입 정보를 찾을 수 없습니다.');
+      }
+    } catch (error: any) {
+      setResultOk(false);
+      setResultMsg(
+        error?.response?.data?.message ??
+          '에러가 발생하였습니다, 재시도 해주세요',
+      );
     }
   };
 
@@ -43,14 +93,44 @@ export default function LoginSuccess() {
           </div>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-2">
           <Input
             label="휴대폰번호"
             placeholder="010-1234-5678"
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
+            rightElement={
+              <Button
+                variant="primary1"
+                size="xs"
+                rounded="full"
+                className="text-xs"
+                onClick={handleSendCode}
+              >
+                인증번호 발송
+              </Button>
+            }
           />
         </div>
+
+        <div className="mb-2">
+          <Input
+            label="인증번호"
+            placeholder="인증번호를 입력해주세요"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+        </div>
+
+        {resultMsg && (
+          <p
+            className={`text-xs mb-2 px-1 ${
+              resultOk ? 'text-green-600' : 'text-red-500'
+            }`}
+          >
+            {resultMsg}
+          </p>
+        )}
 
         <div className="flex gap-2">
           <Button

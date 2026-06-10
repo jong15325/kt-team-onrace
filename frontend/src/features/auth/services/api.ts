@@ -1,12 +1,5 @@
-import axios from 'axios';
+import { apiClient } from '@/lib/apiClient';
 import { IAuthService } from './interface';
-
-// Next.js API Route를 호출하기 위한 인스턴스
-const apiClient = axios.create({
-  // 상대 경로를 사용하면 브라우저에서는 현재 도메인(localhost:3000 등)을 자동으로 사용합니다.
-  baseURL: '/api',
-  headers: { 'Content-Type': 'application/json' },
-});
 
 // apiClient.interceptors.request.use((config) => {
 // 로컬 스토리지나 상태 관리 라이브러리에서 토큰/ID 가져오기
@@ -67,7 +60,10 @@ export const authApi: IAuthService = {
   },
 
   verifyPasswordResetLink: async (data) => {
-    const response = await apiClient.post('/auth/password/reset-verify', data);
+    // 백엔드는 GET ?token= 형식 (토큰 검증 + reset_verified 플래그 설정)
+    const response = await apiClient.get('/auth/password/reset-verify', {
+      params: data,
+    });
     return response.data;
   },
 
@@ -92,8 +88,26 @@ export const authApi: IAuthService = {
     const response = await apiClient.post('/auth/sms/send', data);
     return response.data;
   },
+  // 아이디 찾기 전용: 가입된 번호에만 발송(열거 방지)
+  sendSmsCodeForFind: async (data) => {
+    const response = await apiClient.post('/auth/sms/send-for-find', data);
+    return response.data;
+  },
   verifySmsCode: async (data) => {
     const response = await apiClient.post('/auth/sms/verify', data);
+    return response.data;
+  },
+
+  // 계정 관리 API (로그인 사용자 — 세션 토큰은 BFF에서 전달)
+  changePassword: async (data) => {
+    const response = await apiClient.post(
+      '/auth/account/password/change-request',
+      data,
+    );
+    return response.data;
+  },
+  completePassVerification: async (data) => {
+    const response = await apiClient.post('/auth/account/pass/complete', data);
     return response.data;
   },
 };

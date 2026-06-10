@@ -1,13 +1,14 @@
-// app/login/success/page.tsx
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { LuMail } from 'react-icons/lu';
 
-export default function LoginSuccess() {
+function FindAccountResult() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const email = searchParams.get('email') ?? '';
 
   return (
     <div className="flex flex-col items-center justify-center bg-white p-4">
@@ -25,9 +26,11 @@ export default function LoginSuccess() {
           <div className="flex items-center border border-gray-100 bg-gray-50 rounded-sm mb-6">
             <LuMail size={30} className="m-4 text-font-medium" />
             <span className="text-base text-font-medium">
-              가입한 이메일: exam***@***.com
-              <br />
-              가입일: 2026-01-15
+              {email ? (
+                <>가입한 이메일: {email}</>
+              ) : (
+                <>가입 정보를 확인할 수 없습니다.</>
+              )}
             </span>
           </div>
         </div>
@@ -50,5 +53,13 @@ export default function LoginSuccess() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function FindAccountResultPage() {
+  return (
+    <Suspense fallback={null}>
+      <FindAccountResult />
+    </Suspense>
   );
 }
