@@ -37,6 +37,9 @@ queue:
   token-secret: ${QUEUE_TOKEN_SECRET}
   poll-base-ms: ${QUEUE_POLL_BASE_MS:3000}
   poll-jitter-ms: ${QUEUE_POLL_JITTER_MS:2000}
+  # 시작/종료 시 잔존 대기열(Redis) 정리. 데모/개발은 true.
+  # ⚠️ 다중 인스턴스·롤링 재배포 운영에선 살아있는 대기열을 날리므로 false 권장.
+  clear-on-startup: ${QUEUE_CLEAR_ON_STARTUP:true}
 
 management:
   endpoints:
