@@ -38,13 +38,33 @@ export type StatusId =
   | 'END'
   | 'DRAW_COMPLETED';
 export type TypeId = 'LOTTERY' | 'FIRST_COME';
+// 백엔드 EventType 과 일치
 export type CategoryId =
   | 'ALL'
   | 'MARATHON'
-  | 'PLAY_RUN'
-  | 'EXPERIENCE'
-  | 'CLASS'
-  | 'ETC';
+  | 'RUNNING'
+  | 'TREASURE_HUNT'
+  | 'COPS_AND_ROBBERS';
+// 백엔드 EventRegion 과 일치
+export type RegionId =
+  | 'ALL'
+  | 'SEOUL'
+  | 'BUSAN'
+  | 'DAEGU'
+  | 'INCHEON'
+  | 'GWANGJU'
+  | 'DAEJEON'
+  | 'ULSAN'
+  | 'SEJONG'
+  | 'GYEONGGI'
+  | 'GANGWON'
+  | 'CHUNGBUK'
+  | 'CHUNGNAM'
+  | 'JEONBUK'
+  | 'JEONNAM'
+  | 'GYEONGBUK'
+  | 'GYEONGNAM'
+  | 'JEJU';
 
 // MAP
 const STATUS_MAP: Record<string, string> = {
@@ -66,10 +86,31 @@ const STATUS_CONFIG_MAP: Record<string, string> = {
 const TYPE_MAP: Record<string, string> = {
   ALL: '전체보기',
   MARATHON: '마라톤',
-  PLAY_RUN: '플레이 런',
-  EXPERIENCE: '체험단',
-  CLASS: '러닝클래스',
-  ETC: '기타',
+  RUNNING: '러닝',
+  TREASURE_HUNT: '보물찾기',
+  COPS_AND_ROBBERS: '경찰과 도둑',
+};
+
+// 백엔드 EventRegion enum ↔ 한글 라벨 (필터 select 값으로 enum 사용)
+const REGION_MAP: Record<string, string> = {
+  ALL: '전체',
+  SEOUL: '서울',
+  BUSAN: '부산',
+  DAEGU: '대구',
+  INCHEON: '인천',
+  GWANGJU: '광주',
+  DAEJEON: '대전',
+  ULSAN: '울산',
+  SEJONG: '세종',
+  GYEONGGI: '경기',
+  GANGWON: '강원',
+  CHUNGBUK: '충북',
+  CHUNGNAM: '충남',
+  JEONBUK: '전북',
+  JEONNAM: '전남',
+  GYEONGBUK: '경북',
+  GYEONGNAM: '경남',
+  JEJU: '제주',
 };
 
 const APP_TYPE_MAP: Record<string, string> = {
@@ -95,6 +136,11 @@ export const TYPE = Object.entries(TYPE_MAP).map(([id, label]) => ({
   label,
 }));
 
+export const REGION = Object.entries(REGION_MAP).map(([id, label]) => ({
+  id,
+  label,
+}));
+
 export const APP_TYPE = Object.entries(APP_TYPE_MAP).map(([id, label]) => ({
   id,
   label,
@@ -112,5 +158,6 @@ export const getStatusLabel = (id: string) => STATUS_MAP[id] || '미지정';
 export const getStatusConfig = (id: string) => STATUS_CONFIG_MAP[id] || '';
 export const getTypeLabel = (id: string) => TYPE_MAP[id] || '미지정';
 export const getAppTypeLabel = (id: string) => APP_TYPE_MAP[id] || '미지정';
+export const getRegionLabel = (id: string) => REGION_MAP[id] || '미지정';
 export const getDateFilterOption = (id: string) =>
   DATE_FILTER_OPTIONS_MAP[id] || '미지정';
