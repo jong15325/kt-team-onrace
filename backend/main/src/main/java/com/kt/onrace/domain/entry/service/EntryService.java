@@ -206,6 +206,11 @@ public class EntryService {
 	}
 
 	private EntryApplyResponse applyFirstCome(Long userId, Event event, EventCourse course, EventPace pace) {
+		// 이미 신청완료(APPLIED)면 재고 차감 전에 차단 → 재고 누수 방지 + 중복 결제 차단
+		entryRepository.findByUserIdAndEventId(userId, event.getId())
+			.ifPresent(e -> Preconditions.validate(
+				e.getStatus() != EntryStatus.APPLIED, BusinessErrorCode.ENTRY_ALREADY_APPLIED));
+
 		long result = eventStockService.tryReserveStock(pace.getId(), userId);
 
 		if (result == -2) {

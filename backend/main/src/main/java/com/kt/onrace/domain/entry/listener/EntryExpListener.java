@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
  *   reservation:{paceId}:{userId} 키 TTL 만료
  *   → __keyevent@*__:expired 채널로 알림
  *   → 이 리스너가 수신
- *   → RESERVED 상태 확인 후 Redis 재고 복원 (Entry는 DB에 유지)
+ *   → RESERVED(미결제) 신청이면 Entry 삭제 + Redis 재고 복원
  */
 @Slf4j
 @Component
