@@ -32,6 +32,7 @@ export default function Header() {
   const navItems = [
     { name: '홈', href: '/' },
     { name: '이벤트', href: '/event' },
+    { name: '고객지원', href: '/support' },
     // { name: '마우스이벤트(테스트용)', href: '/mouse-event' },
   ];
 
@@ -140,12 +141,6 @@ export default function Header() {
                 </Link>
               </div>
             )}
-            <Link
-              href="/support"
-              className="text-sm hover:text-current opacity-80 hover:opacity-100"
-            >
-              고객지원
-            </Link>
           </div>
         </div>
       </header>

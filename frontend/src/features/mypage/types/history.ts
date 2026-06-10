@@ -17,6 +17,25 @@ export interface EntriesHistory {
   pace: string;
 }
 
+// 백엔드 GET /entries/my 응답(원시 enum/필드). 표시 문자열은 프론트에서 계산.
+export interface EntryHistoryItem {
+  entryId: number;
+  eventId: number;
+  title: string;
+  thumbnailUrl: string | null;
+  appType: 'LOTTERY' | 'FIRST_COME';
+  eventStatus: 'IN_PROGRESS' | 'CLOSING_SOON' | 'READY' | 'END' | 'DRAW_COMPLETED';
+  entryStatus: 'PRE_SAVED' | 'RESERVED' | 'APPLIED' | 'WON' | 'LOST';
+  createdAt: string;
+  eventAt: string;
+  appStartAt: string;
+  appEndAt: string;
+  resultAt: string | null;
+  venue: string;
+  courseName: string;
+  paceName: string;
+}
+
 export interface WaitingEntriesHistory {
   page: number;
   size: number;
