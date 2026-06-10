@@ -3,8 +3,16 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import NaverProvider from 'next-auth/providers/naver';
 import KakaoProvider from 'next-auth/providers/kakao';
+import axios from 'axios';
 import { authService } from '../services';
 import { LoginRequest } from '../types';
+
+// NextAuth 콜백은 서버에서 실행되므로 상대경로('/api')가 아닌
+// 게이트웨이 절대 URL로 직접 호출한다. (BFF는 브라우저 전용)
+const authBackend = axios.create({
+  baseURL: process.env.ACCOUNT_API_URL,
+  headers: { 'Content-Type': 'application/json' },
+});
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -16,31 +24,27 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         try {
-          const data: LoginRequest = {
+          const res = await authBackend.post('/login', {
             email: credentials?.email?.toString() ?? '',
             password: credentials?.password?.toString() ?? '',
-          };
+          });
 
-          // 백엔드 API 호출
-          const response = await authService.login(data);
-
-          // 응답 성공 여부 확인
-          if (response.success && response.data) {
-            const user = {
-              id: response.data.id.toString(),
-              email: response.data.email || credentials?.email,
-              name: response.data.name || credentials?.email,
-              accessToken: response.data.accessToken,
-              refreshToken: response.data.refreshToken,
+          // 백엔드 응답은 ApiResponse<LoginResponse> 래퍼
+          const apiResponse = res.data;
+          if (apiResponse?.success && apiResponse.data) {
+            const d = apiResponse.data;
+            return {
+              id: d.id.toString(),
+              email: d.email ?? credentials?.email,
+              name: d.name ?? credentials?.email,
+              accessToken: d.accessToken,
+              refreshToken: d.refreshToken,
             };
-
-            return user;
           }
 
           return null;
         } catch (error: any) {
-          console.error('Login Authorize Error:', error);
-
+          console.error('Login Authorize Error:', error?.response?.data ?? error?.message);
           return null;
         }
       },
@@ -104,16 +108,13 @@ export const authOptions: NextAuthOptions = {
 
           // 응답 성공 여부 확인
           if (response.success && response.data) {
-            const user = {
-              id: response.data.id.toString(),
-              email: response.data.email,
-              name: response.data.name,
+            const socialUser = {
               accessToken: response.data.accessToken,
               refreshToken: response.data.refreshToken,
             };
 
-            token.springAccessToken = user.accessToken;
-            token.springRefreshToken = user.refreshToken;
+            token.springAccessToken = socialUser.accessToken;
+            token.springRefreshToken = socialUser.refreshToken;
             token.isUnregistered = false;
           } else {
             token.springAccessToken = undefined;
@@ -128,7 +129,6 @@ export const authOptions: NextAuthOptions = {
 
     async session({ session, token }) {
       // 공통으로 Spring 토큰을 세션에 주입
-
       session.accessToken = token.springAccessToken;
       session.refreshToken = token.springRefreshToken;
       session.isUnregistered = token.isUnregistered;

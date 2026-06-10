@@ -37,5 +37,10 @@ export const authMock: IAuthService = {
 
   // SMS 인증 API
   sendSmsCode: async (data) => wrapMockResponse(),
+  sendSmsCodeForFind: async (data) => wrapMockResponse(),
   verifySmsCode: async (data) => wrapMockResponse(),
+
+  // 계정 관리 API
+  changePassword: async (data) => wrapMockResponse(),
+  completePassVerification: async (data) => wrapMockResponse(),
 };
