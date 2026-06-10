@@ -1,12 +1,7 @@
-import axios from 'axios';
+import { apiClient } from '@/lib/apiClient';
 import { IMypageService } from './interface';
-
-// Next.js API Route를 호출하기 위한 인스턴스
-const apiClient = axios.create({
-  // 상대 경로를 사용하면 브라우저에서는 현재 도메인(localhost:3000 등)을 자동으로 사용합니다.
-  baseURL: '/api',
-  headers: { 'Content-Type': 'application/json' },
-});
+import { EntryHistoryItem } from '../types';
+import { mapEntryHistoryItem } from '../lib/entryStatusLabel';
 
 export const mypageApi: IMypageService = {
   getAccountInfo: async () => {
@@ -19,7 +14,10 @@ export const mypageApi: IMypageService = {
   },
   getEntriesHistory: async () => {
     const response = await apiClient.get(`/mypage/entries`);
-    return response.data;
+    const body = response.data; // ApiResponse<EntryHistoryItem[]>
+    const items: EntryHistoryItem[] = body?.data ?? [];
+    // 백엔드 원시 enum → 화면용 EntriesHistory(표시 문자열 포함)로 매핑
+    return { ...body, data: items.map(mapEntryHistoryItem) };
   },
   getWaitingHistory: async () => {
     const response = await apiClient.get(`/mypage/waiting-entries`);

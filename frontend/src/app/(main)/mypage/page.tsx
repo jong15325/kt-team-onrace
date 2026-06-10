@@ -5,19 +5,33 @@ import {
   EventHistoryPage,
   PaymentHistoryPage,
   AccountSettings,
+  CustomerSupport,
 } from '@/features/mypage/components';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function MyPage() {
-  const [activeTab, setActiveTab] = useState('account');
+const menuItems = [
+  { id: 'account', label: '회원정보 수정' },
+  { id: 'event', label: '신청내역' },
+  { id: 'payment', label: '결제내역' },
+  { id: 'support', label: '고객지원' },
+];
 
-  const menuItems = [
-    { id: 'account', label: '회원정보 수정' },
-    { id: 'event', label: '신청내역' },
-    { id: 'payment', label: '결제내역' },
-    { id: 'support', label: '고객지원' },
-  ];
+function MyPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // 탭 상태를 URL(?tab=)에서 파생 → 상세 진입 후 뒤로가기 시 직전 탭으로 복귀
+  const tabParam = searchParams.get('tab');
+  const activeTab = menuItems.some((item) => item.id === tabParam)
+    ? (tabParam as string)
+    : 'account';
+
+  // 탭 전환은 replace(히스토리 누적 방지), 상세 진입(push)만 뒤로가기 대상이 됨
+  const handleTab = (id: string) => {
+    router.replace(`/mypage?tab=${id}`);
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -28,7 +42,7 @@ export default function MyPage() {
       case 'payment':
         return <PaymentHistoryPage />;
       case 'support':
-        return <div>고객지원 콘텐츠</div>;
+        return <CustomerSupport />;
       default:
         return <AccountSettings />;
     }
@@ -53,7 +67,7 @@ export default function MyPage() {
                 'text-lg justify-start px-0',
                 activeTab === item.id && 'font-bold',
               )}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => handleTab(item.id)}
             >
               {item.label}
             </Button>
@@ -61,10 +75,17 @@ export default function MyPage() {
         </nav>
 
         {/* 오른쪽 콘텐츠 영역 */}
-        <section className="flex-1 rounded-sm bg-white">
-          {renderContent()}
-        </section>
+        <section className="flex-1 rounded-sm bg-white">{renderContent()}</section>
       </div>
     </div>
+  );
+}
+
+export default function MyPage() {
+  // useSearchParams 사용 시 App Router 정적 렌더 경계용 Suspense 필요
+  return (
+    <Suspense fallback={null}>
+      <MyPageContent />
+    </Suspense>
   );
 }
