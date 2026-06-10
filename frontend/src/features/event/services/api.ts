@@ -1,12 +1,13 @@
-import axios from 'axios';
-import { IEventService } from './interface';
+import { apiClient } from '@/lib/apiClient';
+import { IEventService, EntryTokenOptions } from './interface';
 
-// Next.js API Route를 호출하기 위한 인스턴스
-const apiClient = axios.create({
-  // 상대 경로를 사용하면 브라우저에서는 현재 도메인(localhost:3000 등)을 자동으로 사용합니다.
-  baseURL: '/api',
-  headers: { 'Content-Type': 'application/json' },
-});
+/** 토큰 옵션을 실제 요청 헤더로 변환 (브라우저→BFF, BFF가 백엔드로 패스스루) */
+const tokenHeaders = (opts?: EntryTokenOptions) => {
+  const headers: Record<string, string> = {};
+  if (opts?.botToken) headers['Bot-Clear-Token'] = opts.botToken;
+  if (opts?.passToken) headers['X-Queue-Token'] = opts.passToken;
+  return headers;
+};
 
 export const eventApi: IEventService = {
   getEvents: async (data) => {
@@ -26,12 +27,20 @@ export const eventApi: IEventService = {
     return response.data;
   },
 
-  postStockInit: async (id, data) => {
-    const response = await apiClient.post(`/events/${id}/stock/init`, data);
+  postStockInit: async (id) => {
+    const response = await apiClient.post(`/events/${id}/stock/init`);
+    return response.data;
+  },
+  postEventReset: async (id) => {
+    const response = await apiClient.post(`/events/${id}/reset`);
     return response.data;
   },
   postQueueEnable: async (id) => {
     const response = await apiClient.post(`/events/${id}/queue/enable`);
+    return response.data;
+  },
+  postQueueDisable: async (id) => {
+    const response = await apiClient.post(`/events/${id}/queue/disable`);
     return response.data;
   },
   getQueueEnable: async () => {
@@ -59,17 +68,26 @@ export const eventApi: IEventService = {
     const response = await apiClient.delete(`/events/${id}/entries/pre-save`);
     return response.data;
   },
-  applyEventLottery: async (id, data) => {
+  stockCheck: async (id, data, opts) => {
+    const response = await apiClient.get(`/events/${id}/entries/stock-check`, {
+      params: data,
+      headers: tokenHeaders(opts),
+    });
+    return response.data;
+  },
+  applyEventLottery: async (id, data, opts) => {
     const response = await apiClient.post(
       `/events/${id}/entries/apply/lottery`,
       data,
+      { headers: tokenHeaders(opts) },
     );
     return response.data;
   },
-  applyEventFirstCome: async (id, data) => {
+  applyEventFirstCome: async (id, data, opts) => {
     const response = await apiClient.post(
       `/events/${id}/entries/apply/first-come`,
       data,
+      { headers: tokenHeaders(opts) },
     );
     return response.data;
   },

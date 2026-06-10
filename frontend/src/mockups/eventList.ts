@@ -47,7 +47,7 @@ export const EVENT_LIST: EventList = {
     {
       id: 2,
       title: '부산 바다 러닝 페스티벌',
-      type: 'PLAY_RUN',
+      type: 'RUNNING',
       appType: 'FIRST_COME',
       status: 'IN_PROGRESS',
       eventAt: '2026-05-16T09:00:00',
@@ -129,7 +129,7 @@ export const EVENT_LIST: EventList = {
     {
       id: 3,
       title: '런데이 8주 완성! 30분 달리기 첫 도전기',
-      type: 'EXPERIENCE',
+      type: 'TREASURE_HUNT',
       appType: 'FIRST_COME',
       status: 'READY',
       eventAt: '2026-06-15T09:00:00',
@@ -167,7 +167,7 @@ export const EVENT_LIST: EventList = {
     {
       id: 5,
       title: '대구 컬러런',
-      type: 'ETC',
+      type: 'COPS_AND_ROBBERS',
       appType: 'LOTTERY',
       status: 'DRAW_COMPLETED',
       eventAt: '2026-02-18T09:00:00',
@@ -204,7 +204,7 @@ export const EVENT_LIST: EventList = {
     {
       id: 4,
       title: '제주 올레길 마라톤',
-      type: 'CLASS',
+      type: 'RUNNING',
       appType: 'FIRST_COME',
       status: 'END',
       eventAt: '2026-03-17T09:00:00',
@@ -239,6 +239,6 @@ export const EVENT_LIST: EventList = {
       },
     },
   ],
-  nextCursor: 15,
-  hasNext: true,
+  nextCursor: null,
+  hasNext: false,
 };

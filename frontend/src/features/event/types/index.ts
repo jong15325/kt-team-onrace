@@ -5,3 +5,5 @@ export * from './eventOverview';
 export * from './eventRate';
 export * from './eventPrevSave';
 export * from './eventApply';
+export * from './eventStockCheck';
+export * from './eventReset';
