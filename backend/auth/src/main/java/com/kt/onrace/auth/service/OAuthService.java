@@ -37,7 +37,8 @@ public class OAuthService {
 		tokenStoreService.saveRefreshToken(
 				user.getId(), refreshToken, jwtProperties.getRefreshTokenExpiration());
 
-		return new LoginResponse(accessToken, refreshToken, "Bearer", jwtProperties.getAccessTokenExpiration());
+		return new LoginResponse(user.getId(), user.getEmail(), user.getName(),
+				accessToken, refreshToken, "Bearer", jwtProperties.getAccessTokenExpiration());
 	}
 
 	private User registerOAuthUser(OAuthLoginRequest request, AuthProvider provider) {

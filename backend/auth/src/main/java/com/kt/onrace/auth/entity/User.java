@@ -126,8 +126,13 @@ public class User extends BaseEntity {
 
 	public void applyPassVerification(String name, Gender gender, LocalDate birthdate) {
 		this.name = name;
-		this.gender = gender;
-		this.birthdate = birthdate;
+		// 선택값: 전달된 경우에만 갱신 (기존값 보존)
+		if (gender != null) {
+			this.gender = gender;
+		}
+		if (birthdate != null) {
+			this.birthdate = birthdate;
+		}
 		this.verificationStatus = VerificationStatus.VERIFIED;
 	}
 
