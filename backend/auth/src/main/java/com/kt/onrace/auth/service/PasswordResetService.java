@@ -42,21 +42,20 @@ public class PasswordResetService {
 	 * 비밀번호 재설정 요청: 이메일 검증 후 재설정 링크 발송
 	 */
 	public void requestPasswordReset(String email, String resetBaseUrl) {
-		User user = userRepository.findByEmailAndStatus(email, UserStatus.ACTIVE)
-			.orElseThrow(() -> new BusinessException(BusinessErrorCode.AUTH_PASSWORD_RESET_EMAIL_NOT_FOUND));
-
+		// 이메일 열거(enumeration) 방지: 가입 여부와 무관하게 항상 동일하게 응답한다.
+		// 쿨다운/일일한도도 존재 여부와 무관하게 균일 적용하여, 응답 차이로 가입 여부가 드러나지 않게 한다.
 		checkCooldown(email);
 		checkDailyLimit(email);
-
-		String token = UUID.randomUUID().toString();
-
-		RBucket<String> tokenBucket = redissonClient.getBucket(RedisKeyGenerator.passwordResetTokenKey(token));
-		tokenBucket.set(String.valueOf(user.getId()), Duration.ofMinutes(RESET_TOKEN_TTL_MINUTES));
-
 		setCooldown(email);
 		incrementDailyCount(email);
 
-		sendResetEmail(email, resetBaseUrl, token);
+		// 실제 발송은 가입된(활성) 사용자일 때만 수행
+		userRepository.findByEmailAndStatus(email, UserStatus.ACTIVE).ifPresent(user -> {
+			String token = UUID.randomUUID().toString();
+			RBucket<String> tokenBucket = redissonClient.getBucket(RedisKeyGenerator.passwordResetTokenKey(token));
+			tokenBucket.set(String.valueOf(user.getId()), Duration.ofMinutes(RESET_TOKEN_TTL_MINUTES));
+			sendResetEmail(email, resetBaseUrl, token);
+		});
 	}
 
 	/**
