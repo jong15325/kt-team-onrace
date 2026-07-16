@@ -1,15 +1,20 @@
 # 1단계: base 설정
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+# pnpm 10.x 고정: v9.0 lockfile/overrides 호환 + strictDepBuilds 기본 false(무시된 빌드 스크립트를 경고 처리).
+# pnpm 11의 corepack "latest"는 strictDepBuilds=true 라 sharp 등 미승인 빌드에서 ERR_PNPM_IGNORED_BUILDS 로 실패함.
+RUN corepack enable && corepack prepare pnpm@10.15.1 --activate
 
 # 2단계: 의존성 설치
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+# lockfile 이 package.json 의 pnpm.overrides 와 어긋나 있어(로컬에서 재생성/커밋 안 됨) frozen 설치가 거부됨.
+# --no-frozen-lockfile 로 컨테이너 내에서 lockfile 을 package.json 에 맞춰 갱신하여 설치.
+# (더 엄격한 재현성이 필요하면 로컬에서 `pnpm install` 후 pnpm-lock.yaml 을 커밋하고 --frozen-lockfile 로 되돌릴 것)
+RUN pnpm install --no-frozen-lockfile
 
 # 3단계: 빌드 (환경 변수를 이 단계로 가져와야 합니다)
 FROM base AS builder
@@ -33,18 +38,11 @@ ARG NAVER_CLIENT_SECRET
 ARG NEXT_PUBLIC_TOSS_CLIENT_KEY
 ARG TOSS_SECRET_KEY
 
-ENV NEXT_PUBLIC_API_MODE="mock"
-ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-
-ENV ACCOUNT_API_URL=$ACCOUNT_API_URL
-ENV MAIN_API_URL=$MAIN_API_URL
-
-ENV NEXTAUTH_URL=$NEXTAUTH_URL
-ENV NEXTAUTH_SECRET=$NEXTAUTH_SECRET
-ENV KAKAO_CLIENT_ID=$KAKAO_CLIENT_ID
-ENV KAKAO_CLIENT_SECRET=$KAKAO_CLIENT_SECRET
-ENV NAVER_CLIENT_ID=$NAVER_CLIENT_ID
-ENV NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET
+# NEXT_PUBLIC_API_MODE 만 빌드 인자로 명시 제어(기본 real). 나머지 서버/시크릿 변수는
+# 빌드 컨텍스트에 복사된 .env 에서 Next 가 읽는다(런타임 값은 compose 가 주입).
+# 주의: 빈 ARG 를 ENV 로 승격하면 시스템 env 가 .env 를 덮어써 NEXTAUTH_URL="" → 빌드 중 Invalid URL 이 발생한다.
+ARG NEXT_PUBLIC_API_MODE=real
+ENV NEXT_PUBLIC_API_MODE=$NEXT_PUBLIC_API_MODE
 
 RUN pnpm run build
 

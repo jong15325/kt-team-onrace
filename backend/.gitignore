@@ -57,10 +57,15 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
+### Node (docs/portfolio 등 npm 프로젝트) ###
+node_modules/
+**/node_modules/
+
 ### Logs ###
 *.log
 logs/
 spring.log
+*-log/
 
 ### API Keys & Secrets ###
 gradle.properties
@@ -87,5 +92,8 @@ filebeat/
 /build/
 /out/
 /target/
+
+### 포트폴리오 작업 문서 (커밋 제외) ###
+docs/
 
 .env

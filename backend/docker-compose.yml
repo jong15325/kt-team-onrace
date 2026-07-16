@@ -192,6 +192,38 @@ services:
       - on-race-network
     restart: always
 
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        # mock 하드코딩 대신 실연동으로 빌드 (NEXT_PUBLIC_* 은 빌드 시점에 번들에 인라인됨)
+        NEXT_PUBLIC_API_MODE: real
+    container_name: on-race-frontend
+    labels:
+      onrace.log.collect: "true"
+    # NEXTAUTH_SECRET, OAuth 키 등 서버사이드 런타임 변수 주입 (standalone 이미지엔 .env가 포함되지 않음)
+    env_file: ../frontend/.env
+    ports:
+      - '3000:3000'
+    environment:
+      # Docker 내부망에서는 localhost 가 컨테이너 자신을 가리키므로 gateway 서비스명으로 호출한다.
+      # 게이트웨이가 X-Gateway-Token 을 주입하므로 백엔드의 GatewayAccessFilter 를 통과한다.
+      - MAIN_API_URL=http://gateway:${GATEWAY_SERVER_PORT}/main
+      - ACCOUNT_API_URL=http://gateway:${GATEWAY_SERVER_PORT}/auth
+      - QUEUE_API_URL=http://gateway:${GATEWAY_SERVER_PORT}/queue
+      # 브라우저가 접근하는 주소이므로 localhost 유지
+      - NEXTAUTH_URL=http://localhost:3000
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    depends_on:
+      - gateway
+    networks:
+      - on-race-network
+    restart: always
+
   prometheus:
     image: prom/prometheus:latest
     container_name: onrace-prometheus

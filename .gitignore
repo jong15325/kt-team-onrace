@@ -5,6 +5,11 @@ rules/
 .vscode
 .env
 
+# Logs (모듈별 실행 로그 디렉토리)
+*-log/
+*.log
+node_modules/
+
 # Security Scanner Reports
 *_scan.json
 *_scan.txt
