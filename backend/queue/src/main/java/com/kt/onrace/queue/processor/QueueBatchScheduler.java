@@ -1,11 +1,17 @@
 package com.kt.onrace.queue.processor;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import org.redisson.api.RBucket;
+import org.redisson.api.BatchOptions;
+import org.redisson.api.RBatch;
+import org.redisson.api.RBucketAsync;
 import org.redisson.api.RDeque;
 import org.redisson.api.RLock;
 import org.redisson.api.RScoredSortedSet;
@@ -38,6 +44,14 @@ public class QueueBatchScheduler {
 	private static final long LOCK_LEASE_SECONDS = 30;
 	private static final int MAX_RETRY_COUNT = 3;
 	private static final String RETRY_SEPARATOR = ":";
+	private static final int PACE_THREAD_POOL_SIZE = 8;
+
+	private final ExecutorService paceExecutor = Executors.newFixedThreadPool(PACE_THREAD_POOL_SIZE,
+		r -> {
+			Thread t = new Thread(r, "queue-pace-worker");
+			t.setDaemon(true);
+			return t;
+		});
 
 	// 대기열(waiting)과 재시도 큐(retry)가 모두 비어있을 때만 activePaces에서 제거
 	private static final String REMOVE_IF_EMPTY_SCRIPT =
@@ -55,14 +69,18 @@ public class QueueBatchScheduler {
 			RSet<String> activePaces = redissonClient.getSet(RedisKeyGenerator.queueActivePaces(), StringCodec.INSTANCE);
 			Set<String> paceIds = activePaces.readAll();
 
-			for (String paceIdStr : paceIds) {
-				try {
-					Long paceId = Long.parseLong(paceIdStr);
-					processPaceQueue(paceId);
-				} catch (Exception e) {
-					log.error("배치 처리 오류 - paceId={}, error={}", paceIdStr, e.getMessage());
-				}
-			}
+			List<CompletableFuture<Void>> futures = paceIds.stream()
+				.map(paceIdStr -> CompletableFuture.runAsync(() -> {
+					try {
+						Long paceId = Long.parseLong(paceIdStr);
+						processPaceQueue(paceId);
+					} catch (Exception e) {
+						log.error("배치 처리 오류 - paceId={}, error={}", paceIdStr, e.getMessage());
+					}
+				}, paceExecutor))
+				.toList();
+
+			CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
 		} finally {
 			queueMetrics.stopBatchTimer(sample);
 		}
@@ -113,6 +131,8 @@ public class QueueBatchScheduler {
 		}
 	}
 
+	private record PassTokenEntry(String userIdStr, String passKey, String passToken, int retryCount) {}
+
 	private int processWaitingQueue(RScoredSortedSet<String> waitingSet, Long paceId, long passTtl,
 		RDeque<String> retryQueue, int count) {
 		if (count <= 0) {
@@ -122,24 +142,32 @@ public class QueueBatchScheduler {
 		if (popped == null || popped.isEmpty()) {
 			return 0;
 		}
-		int issued = 0;
+
+		List<PassTokenEntry> entries = new ArrayList<>();
 		for (String userIdStr : popped) {
 			if (userIdStr == null) {
 				continue;
 			}
-			if (issuePassToken(userIdStr, paceId, passTtl, retryQueue, 0)) {
-				issued++;
+			try {
+				Long userId = Long.parseLong(userIdStr);
+				String passKey = RedisKeyGenerator.queuePass(paceId, userId);
+				String passToken = queueTokenGenerator.generatePassToken(userId, paceId);
+				entries.add(new PassTokenEntry(userIdStr, passKey, passToken, 0));
+			} catch (Exception e) {
+				log.error("통과 토큰 생성 실패, 재시도 큐 등록 (1/{}) - paceId={}, userId={}",
+					MAX_RETRY_COUNT, paceId, userIdStr, e);
+				retryQueue.addLast(userIdStr + RETRY_SEPARATOR + 1);
 			}
 		}
-		return issued;
+
+		return executeTokenBatch(entries, paceId, passTtl, retryQueue);
 	}
 
 	private int processRetryQueue(RDeque<String> retryQueue, Long paceId, long passTtl, int batchSize) {
-		int issued = 0;
+		List<PassTokenEntry> entries = new ArrayList<>();
 
 		String entry;
-
-		while (issued < batchSize && (entry = retryQueue.pollFirst()) != null) {
+		while (entries.size() < batchSize && (entry = retryQueue.pollFirst()) != null) {
 			String userId = parseUserId(entry);
 			int retryCount = parseRetryCount(entry);
 
@@ -148,28 +176,46 @@ public class QueueBatchScheduler {
 				continue;
 			}
 
-			if (issuePassToken(userId, paceId, passTtl, retryQueue, retryCount)) {
-				issued++;
+			try {
+				Long userIdLong = Long.parseLong(userId);
+				String passKey = RedisKeyGenerator.queuePass(paceId, userIdLong);
+				String passToken = queueTokenGenerator.generatePassToken(userIdLong, paceId);
+				entries.add(new PassTokenEntry(userId, passKey, passToken, retryCount));
+			} catch (Exception e) {
+				int nextRetry = retryCount + 1;
+				log.error("통과 토큰 생성 실패, 재시도 큐 등록 ({}/{}) - paceId={}, userId={}",
+					nextRetry, MAX_RETRY_COUNT, paceId, userId, e);
+				retryQueue.addLast(userId + RETRY_SEPARATOR + nextRetry);
 			}
 		}
-		return issued;
+
+		return executeTokenBatch(entries, paceId, passTtl, retryQueue);
 	}
 
-	private boolean issuePassToken(String userIdStr, Long paceId, long passTtl, RDeque<String> retryQueue, int retryCount) {
+	private int executeTokenBatch(List<PassTokenEntry> entries, Long paceId, long passTtl, RDeque<String> retryQueue) {
+		if (entries.isEmpty()) {
+			return 0;
+		}
+
 		try {
-			Long userId = Long.parseLong(userIdStr);
-			String passKey = RedisKeyGenerator.queuePass(paceId, userId);
-			String passToken = queueTokenGenerator.generatePassToken(userId, paceId);
-			RBucket<String> passBucket = redissonClient.getBucket(passKey, StringCodec.INSTANCE);
-			passBucket.set(passToken, passTtl, TimeUnit.SECONDS);
-			log.info("[QUEUE] 통과 토큰 발급 userId={}, paceId={}", userId, paceId);
-			return true;
+			RBatch batch = redissonClient.createBatch(BatchOptions.defaults());
+			for (PassTokenEntry entry : entries) {
+				RBucketAsync<String> bucket = batch.getBucket(entry.passKey(), StringCodec.INSTANCE);
+				bucket.setAsync(entry.passToken(), passTtl, TimeUnit.SECONDS);
+			}
+			batch.execute();
+
+			for (PassTokenEntry entry : entries) {
+				log.debug("[QUEUE] 통과 토큰 발급 userId={}, paceId={}", entry.userIdStr(), paceId);
+			}
+			return entries.size();
 		} catch (Exception e) {
-			int nextRetry = retryCount + 1;
-			log.error("통과 토큰 발급 실패, 재시도 큐 등록 ({}/{}) - paceId={}, userId={}",
-				nextRetry, MAX_RETRY_COUNT, paceId, userIdStr, e);
-			retryQueue.addLast(userIdStr + RETRY_SEPARATOR + nextRetry);
-			return false;
+			log.error("파이프라인 실행 실패, 재시도 큐 등록 - paceId={}, count={}", paceId, entries.size(), e);
+			for (PassTokenEntry entry : entries) {
+				int nextRetry = entry.retryCount() + 1;
+				retryQueue.addLast(entry.userIdStr() + RETRY_SEPARATOR + nextRetry);
+			}
+			return 0;
 		}
 	}
 

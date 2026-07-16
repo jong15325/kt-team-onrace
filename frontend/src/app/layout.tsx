@@ -7,6 +7,7 @@ import Footer from '@/components/layout/Footer';
 import { cn } from '@/lib/utils';
 import ScrollToTopButton from '@/components/layout/ScrollToTopButton';
 import ReactQueryProvider from '@/providers/ReactQueryProvider';
+import Container from '@/components/layout/Container';
 
 // 폰트 설정
 const pretendard = localFont({
@@ -41,7 +42,8 @@ export default function RootLayout({
               <Header />
 
               <main className="flex-1 bg-white content-center">
-                {children}
+                <Container>{children}</Container>
+
                 <ScrollToTopButton />
               </main>
 

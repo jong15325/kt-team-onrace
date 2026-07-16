@@ -28,6 +28,22 @@ public class RedissonConfig {
 	@Bean
 	@Profile("local")
 	public RedissonClient redissonSingleClient() {
+		return createSingleClient();
+	}
+
+	@Bean
+	@Profile({"dev", "prod"})
+	public RedissonClient redissonClient() {
+		if (redisProperties.getSentinel() != null
+			&& redisProperties.getSentinel().getMaster() != null) {
+			log.info("[Redisson] Sentinel 모드 초기화 - master: {}", redisProperties.getSentinel().getMaster());
+			return createSentinelClient();
+		}
+		log.info("[Redisson] Standalone 모드 초기화 - host: {}:{}", redisProperties.getHost(), redisProperties.getPort());
+		return createSingleClient();
+	}
+
+	private RedissonClient createSingleClient() {
 		var config = new Config();
 		String host = redisProperties.getHost() + ":" + redisProperties.getPort();
 		String protocol = redisProperties.getSsl().isEnabled() ? "rediss" : "redis";
@@ -45,9 +61,7 @@ public class RedissonConfig {
 		return Redisson.create(config);
 	}
 
-	@Bean
-	@Profile({"dev", "prod"})
-	public RedissonClient redissonSentinelClient() {
+	private RedissonClient createSentinelClient() {
 		var config = new Config();
 		String protocol = redisProperties.getSsl().isEnabled() ? "rediss" : "redis";
 

@@ -18,19 +18,28 @@ export default function EmailLoginPage() {
     e.preventDefault();
     setError('');
 
-    const result = await signIn('credentials', {
-      email,
-      password,
-      redirect: false, // 성공 시 자동 리다이렉트를 막고 직접 제어 (에러 처리를 위해)
-    });
+    try {
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false, // 성공 시 자동 리다이렉트를 막고 직접 제어 (에러 처리를 위해)
+      });
 
-    if (result?.error) {
-      // 인증 실패 시 (Spring에서 401 등을 보냈을 때)
-      setError('이메일 또는 비밀번호가 일치하지 않습니다.');
-    } else {
-      // 로그인 성공 시 메인 페이지로 이동
-      router.push('/');
-      router.refresh(); // 세션 정보를 최신화하기 위해 권장
+      if (result?.ok) {
+        // 로그인 성공 시 메인 페이지로 이동
+        router.push('/');
+        router.refresh(); // 세션 정보를 최신화하기 위해 권장
+        return;
+      }
+
+      if (result?.error === 'CredentialsSignin') {
+        // 이메일 미존재/비밀번호 불일치 등 인증 실패는 보안상 동일 메시지로 통일(열거 방지)
+        setError('일치하는 정보가 없습니다');
+      } else {
+        setError('에러가 발생했습니다, 다시 시도해주세요');
+      }
+    } catch {
+      setError('에러가 발생했습니다, 다시 시도해주세요');
     }
   };
 
@@ -69,6 +78,8 @@ export default function EmailLoginPage() {
             }
           />
         </div>
+
+        {error && <p className="text-xs text-red-500 mb-2 px-1">{error}</p>}
 
         <Button rounded="full" onClick={handleCredentialsLogin}>
           로그인하기

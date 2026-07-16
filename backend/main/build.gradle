@@ -9,6 +9,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     runtimeOnly 'com.mysql:mysql-connector-j'
 
+    // CACHE
+    implementation 'com.github.ben-manes.caffeine:caffeine'
+
     // UTILS
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 

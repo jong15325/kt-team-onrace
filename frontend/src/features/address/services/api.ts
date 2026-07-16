@@ -1,11 +1,5 @@
-import axios from 'axios';
+import { apiClient } from '@/lib/apiClient';
 import { IAddressService } from './interface';
-
-// Next.js API Route를 호출하기 위한 인스턴스
-const apiClient = axios.create({
-  baseURL: '/api',
-  headers: { 'Content-Type': 'application/json' },
-});
 
 export const addressApi: IAddressService = {
   getAddress: async () => {

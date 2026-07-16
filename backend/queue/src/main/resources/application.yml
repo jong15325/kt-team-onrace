@@ -1,6 +1,12 @@
 server:
-  port: ${QUEUE_SERVER_PORT:8083}
+  port: ${QUEUE_SERVER_PORT:8082}
   shutdown: graceful
+  tomcat:
+    threads:
+      max: ${QUEUE_TOMCAT_MAX_THREADS:150}
+      min-spare: ${QUEUE_TOMCAT_MIN_SPARE_THREADS:30}
+    accept-count: ${QUEUE_TOMCAT_ACCEPT_COUNT:200}
+    max-connections: ${QUEUE_TOMCAT_MAX_CONNECTIONS:2000}
 
 spring:
   lifecycle:
@@ -10,7 +16,7 @@ spring:
     name: queue
 
   profiles:
-    active: ${QUEUE_PROFILES_ACTIVE:local}
+    active: ${SPRING_PROFILES_ACTIVE:local}
 
   data:
     redis:
@@ -29,22 +35,11 @@ queue:
   interval-ms: ${QUEUE_INTERVAL_MS:3000}
   pass-ttl-seconds: ${QUEUE_PASS_TTL_SECONDS:600}
   token-secret: ${QUEUE_TOKEN_SECRET}
-  # ──── 배치 처리 성능 튜닝 가이드 ────
-  # batch-size: pace당 1회 배치에서 처리할 사용자 수
-  #   범위: 50~2000 | 처리율 = batch-size / (interval-ms / 1000)
-  #   현재: 500 / 2초 = 250명/초/pace
-  #   높이면 처리율 증가, but Redis 단일 명령 실행 시간 증가 (blocking 주의)
-  #
-  # interval-ms: 배치 스케줄러 실행 주기 (fixedDelay)
-  #   범위: 1000~10000 | 줄이면 처리율 증가, Redis 부하 증가
-  #   1000ms 이하 비권장 (분산 락 경합 + Redis CPU 부하)
-  #
-  # pass-ttl-seconds: 통과 토큰 유효 시간 (초)
-  #   범위: 60~1800 | 사용자가 결제까지 완료할 시간 고려
-  #   너무 짧으면 결제 중 만료, 너무 길면 미사용 토큰이 슬롯 점유
-  #
-  # [AWS 배포 시] 30,000 트래픽 시: batch-size=1000, interval-ms=2000 → 500명/초/pace 권장
-  # 복수 pace 운영 시: 총 처리율 = 처리율/pace x pace 수
+  poll-base-ms: ${QUEUE_POLL_BASE_MS:3000}
+  poll-jitter-ms: ${QUEUE_POLL_JITTER_MS:2000}
+  # 시작/종료 시 잔존 대기열(Redis) 정리. 데모/개발은 true.
+  # ⚠️ 다중 인스턴스·롤링 재배포 운영에선 살아있는 대기열을 날리므로 false 권장.
+  clear-on-startup: ${QUEUE_CLEAR_ON_STARTUP:true}
 
 management:
   endpoints:

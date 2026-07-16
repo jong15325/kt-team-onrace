@@ -4,7 +4,9 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.kt.onrace.common.exception.BusinessErrorCode;
@@ -27,10 +29,12 @@ import com.kt.onrace.domain.event.entity.EventAppType;
 import com.kt.onrace.domain.event.entity.EventCourse;
 import com.kt.onrace.domain.event.entity.EventPace;
 import com.kt.onrace.domain.event.entity.EventStatus;
+import com.kt.onrace.domain.event.event.StockConfirmEvent;
 import com.kt.onrace.domain.event.repository.EventCourseRepository;
 import com.kt.onrace.domain.event.repository.EventPaceRepository;
 import com.kt.onrace.domain.event.repository.EventRepository;
 import com.kt.onrace.domain.event.repository.EventStockRepository;
+import com.kt.onrace.domain.event.service.EventCacheService;
 import com.kt.onrace.domain.event.service.EventStockService;
 import com.kt.onrace.domain.member.repository.MemberRepository;
 
@@ -52,6 +56,9 @@ public class EntryService {
 	private final EventStockService eventStockService;
 	private final EventStockRepository eventStockRepository;
 	private final EntryMetrics entryMetrics;
+	private final EventCacheService eventCacheService;
+	private final EntryPersistService entryPersistService;
+	private final ApplicationEventPublisher eventPublisher;
 
 	@ServiceLog(slowMs = 2000)
 	@Transactional
@@ -161,17 +168,14 @@ public class EntryService {
 	}
 
 	@ServiceLog(slowMs = 2000)
-	@Transactional
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public EntryApplyResponse apply(Long userId, Long eventId, EntryCoursePaceRequest request,
 			Long queuePaceId, EventAppType expectedAppType) {
 		if (queuePaceId != null) {
 			Preconditions.validate(queuePaceId.equals(request.paceId()), BusinessErrorCode.ENTRY_QUEUE_PACE_MISMATCH);
 		}
 
-		memberRepository.findByIdAndIsDeletedFalseOrThrow(userId, BusinessErrorCode.MEMBER_NOT_FOUND);
-
-		Event event = eventRepository.findByIdAndIsViewTrueAndIsDeletedFalseOrThrow(eventId,
-				BusinessErrorCode.EVENT_NOT_FOUND);
+		Event event = eventCacheService.getEvent(eventId);
 
 		Preconditions.validate(event.getAppType() == expectedAppType, BusinessErrorCode.ENTRY_APP_TYPE_MISMATCH);
 
@@ -180,11 +184,8 @@ public class EntryService {
 		Preconditions.validate(!now.isBefore(event.getAppStartAt()) && !now.isAfter(event.getAppEndAt()),
 				BusinessErrorCode.ENTRY_NOT_IN_PERIOD);
 
-		EventCourse course = eventCourseRepository.findByIdAndEventIdOrThrow(request.courseId(), eventId,
-				BusinessErrorCode.ENTRY_COURSE_NOT_FOUND);
-
-		EventPace pace = eventPaceRepository.findByIdAndEventCourseIdOrThrow(request.paceId(), request.courseId(),
-				BusinessErrorCode.ENTRY_PACE_NOT_FOUND);
+		EventCourse course = eventCacheService.getCourse(request.courseId(), eventId);
+		EventPace pace = eventCacheService.getPace(request.paceId(), request.courseId());
 
 		log.info("[ENTRY] 신청 시작 userId={}, eventId={}, appType={}, courseId={}, paceId={}",
 			userId, eventId, expectedAppType, request.courseId(), request.paceId());
@@ -196,9 +197,7 @@ public class EntryService {
 	}
 
 	private EntryApplyResponse applyLottery(Long userId, Event event, EventCourse course, EventPace pace) {
-		Entry entry = getCreateEntry(userId, event);
-		entry.apply(course, pace);
-		entryRepository.save(entry);
+		Entry entry = entryPersistService.applyLotteryEntry(userId, event, course, pace);
 		entryMetrics.recordApply("LOTTERY", "success");
 
 		log.info("[ENTRY] 추첨 신청 완료 userId={}, eventId={}, entryId={}", userId, event.getId(), entry.getId());
@@ -207,49 +206,37 @@ public class EntryService {
 	}
 
 	private EntryApplyResponse applyFirstCome(Long userId, Event event, EventCourse course, EventPace pace) {
-		Entry entry = getCreateEntry(userId, event);
-
-		if (entry.isReserved()) {
-			long remainingMs = eventStockService.getReservationTtl(entry.getEventPace().getId(), userId);
-			if (remainingMs > 0) {
-				return EntryApplyResponse.fromReserved(entry, LocalDateTime.now().plus(Duration.ofMillis(remainingMs)));
-			}
-		}
+		// 이미 신청완료(APPLIED)면 재고 차감 전에 차단 → 재고 누수 방지 + 중복 결제 차단
+		entryRepository.findByUserIdAndEventId(userId, event.getId())
+			.ifPresent(e -> Preconditions.validate(
+				e.getStatus() != EntryStatus.APPLIED, BusinessErrorCode.ENTRY_ALREADY_APPLIED));
 
 		long result = eventStockService.tryReserveStock(pace.getId(), userId);
 
 		if (result == -2) {
+			// 이미 선점된 사용자 — 활성 예약이면 기존 예약 정보 반환
+			long remainingMs = eventStockService.getReservationTtl(pace.getId(), userId);
+			if (remainingMs > 0) {
+				Entry entry = entryRepository.findByUserIdAndEventId(userId, event.getId())
+					.orElseThrow(() -> new BusinessException(BusinessErrorCode.ENTRY_NOT_FOUND));
+				return EntryApplyResponse.fromReserved(entry, LocalDateTime.now().plus(Duration.ofMillis(remainingMs)));
+			}
 			entryMetrics.recordApply("FIRST_COME", "duplicate");
 			log.info("[ENTRY] 중복 선점 시도 userId={}, paceId={}", userId, pace.getId());
-		} else if (result == -1) {
-			entryMetrics.recordApply("FIRST_COME", "sold_out");
-			log.info("[ENTRY] 선착순 매진 userId={}, paceId={}", userId, pace.getId());
+			throw new BusinessException(BusinessErrorCode.ENTRY_ALREADY_RESERVED);
 		}
 
-		Preconditions.validate(result != -2, BusinessErrorCode.ENTRY_ALREADY_RESERVED);
-		Preconditions.validate(result != -1, BusinessErrorCode.ENTRY_SOLD_OUT);
+		if (result == -1) {
+			entryMetrics.recordApply("FIRST_COME", "sold_out");
+			log.info("[ENTRY] 선착순 매진 userId={}, paceId={}", userId, pace.getId());
+			throw new BusinessException(BusinessErrorCode.ENTRY_SOLD_OUT);
+		}
 
 		entryMetrics.recordApply("FIRST_COME", "success");
 		log.info("[ENTRY] 선착순 선점 성공 userId={}, paceId={}, remaining={}", userId, pace.getId(), result);
 
-		entry.reserve(course, pace);
-		entryRepository.save(entry);
-
+		Entry entry = entryPersistService.reserveFirstComeEntry(userId, event, course, pace);
 		return EntryApplyResponse.fromReserved(entry, LocalDateTime.now().plusSeconds(entryProperties.getTtlSeconds()));
-	}
-
-	private Entry getCreateEntry(Long userId, Event event) {
-		return entryRepository.findByUserIdAndEventId(userId, event.getId())
-				.map(e -> {
-					Preconditions.validate(e.getStatus() != EntryStatus.APPLIED, BusinessErrorCode.ENTRY_ALREADY_APPLIED);
-					Preconditions.validate(e.getStatus() == EntryStatus.RESERVED || e.getStatus() == EntryStatus.PRE_SAVED,
-						BusinessErrorCode.ENTRY_CANNOT_APPLY);
-					return e;
-				})
-				.orElseGet(() -> Entry.builder()
-						.userId(userId)
-						.event(event)
-						.build());
 	}
 
 	@ServiceLog
@@ -294,11 +281,9 @@ public class EntryService {
 		entryMetrics.recordConfirm(type.name());
 		log.info("[ENTRY] 결제 확정 userId={}, paceId={}, appType={}", userId, paceId, type);
 
-		// 왜? 위의 if로 넣지 않느냐 -> 트랜잭션 커밋이 안된 상태에서 redis는 즉시 실행되고 DB 업데이트는 트랜잭션 커밋 시점에 반영되기
-		// 때문에 DB가 실패할 시 redis는 롤백이 안되므로, DB가 성공적으로 끝난 후 redis를 실행하는 것이 맞음
+		// TX 커밋 후 Redis 작업 실행 (DB 롤백 시 Redis 불일치 방지)
 		if(type == EventAppType.FIRST_COME) {
-			eventStockService.deleteReservation(paceId, userId);
-			eventStockService.confirmStock(paceId);
+			eventPublisher.publishEvent(new StockConfirmEvent(paceId, userId));
 		}
 	}
 

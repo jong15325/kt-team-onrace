@@ -3,7 +3,7 @@ spring:
     name: main
 
   profiles:
-    active: ${MAIN_PROFILES_ACTIVE:local}
+    active: ${SPRING_PROFILES_ACTIVE:local}
 
   datasource:
     url: jdbc:mysql://${MAIN_DB_HOST}:${MAIN_DB_PORT}/${MAIN_DB_NAME}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
@@ -11,34 +11,11 @@ spring:
     password: ${MAIN_DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      # maximum-pool-size: 풀에서 유지할 최대 커넥션 수
-      # 범위: 10~100 | 기준: (CPU 코어 수 * 2) + 디스크 수. 일반적으로 10~30 권장
-      # 너무 높으면 DB 쪽 컨텍스트 스위칭 오버헤드 증가, 너무 낮으면 커넥션 대기 발생
-      # 단일 인스턴스: 30~50, K8s 멀티 Pod: 15~30 (총 커넥션 = Pod수 x pool-size < DB max_connections)
       maximum-pool-size: ${MAIN_HIKARI_MAX_POOL_SIZE:10}
-      # minimum-idle: 풀에서 유지할 최소 유휴 커넥션 수
-      # 범위: 1~maximum-pool-size | 기준: 평상시 동시 DB 접근량
-      # maximum-pool-size와 동일하게 설정하면 고정 풀(커넥션 생성/삭제 없음, 응답 안정적)
-      # 낮게 설정하면 유휴 시 리소스 절약, 트래픽 급증 시 커넥션 생성 지연 발생
       minimum-idle: ${MAIN_HIKARI_MIN_IDLE:5}
-      # connection-timeout: 풀에서 커넥션을 획득할 때 최대 대기 시간 (ms)
-      # 범위: 250~30000 | 기준: 사용자 체감 응답 시간. 기본값 30초는 부하 시 스레드 고갈 유발
-      # 3000ms(3초) 권장: 못 얻으면 빠르게 실패 → 시스템 보호 (fail-fast)
-      # 너무 짧으면(250ms) 정상 상황에서도 불필요한 실패 발생
       connection-timeout: ${MAIN_HIKARI_CONNECTION_TIMEOUT:3000}
-      # max-lifetime: 풀에 있는 커넥션의 최대 수명 (ms)
-      # 범위: 30000~3600000 | 기준: DB의 wait_timeout 보다 2~3분 짧게 설정
-      # MySQL wait_timeout 기본 28800초(8시간) → 1800000ms(30분) 충분
-      # 너무 짧으면 불필요한 커넥션 재생성, 너무 길면 stale 커넥션 사용 위험
       max-lifetime: ${MAIN_HIKARI_MAX_LIFETIME:1800000}
-      # idle-timeout: 유휴 커넥션이 풀에서 제거되기까지의 시간 (ms)
-      # 범위: 10000~max-lifetime | 기준: minimum-idle 이상의 유휴 커넥션만 제거됨
-      # 600000ms(10분) 권장. minimum-idle과 maximum-pool-size가 같으면 이 설정은 무시됨
       idle-timeout: ${MAIN_HIKARI_IDLE_TIMEOUT:600000}
-      # leak-detection-threshold: 커넥션 누수 감지 임계값 (ms)
-      # 범위: 0(비활성), 2000~ | 기준: 가장 느린 쿼리 실행 시간보다 약간 길게
-      # 이 시간 이상 커넥션을 반환하지 않으면 WARN 로그 출력 (leak 의심)
-      # 부하테스트 시 5000ms(5초), 운영 시 30000ms(30초) 또는 비활성(0) 권장
       leak-detection-threshold: ${MAIN_HIKARI_LEAK_DETECTION:5000}
 
   jpa:
@@ -46,7 +23,6 @@ spring:
       ddl-auto: ${MAIN_JPA_DDL_AUTO:update}
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
         jdbc:
           time_zone: Asia/Seoul
         format_sql: ${MAIN_HIBERNATE_FORMAT_SQL:true}
@@ -64,30 +40,15 @@ spring:
     timeout-per-shutdown-phase: ${MAIN_SHUTDOWN_TIMEOUT:30s}
 
 server:
-  port: ${MAIN_SERVER_PORT:8082}
+  port: ${MAIN_SERVER_PORT:8080}
   shutdown: graceful
   forward-headers-strategy: framework
   tomcat:
     threads:
-      # max: Tomcat이 요청 처리에 사용할 최대 스레드 수
-      # 범위: 50~800 | 기준: (예상 동시 요청 수) 와 (CPU 코어 수 * 50~100)
-      # DB pool보다 커야 함 (DB 안 쓰는 요청도 처리해야 하므로)
-      # CPU 2코어: 100~200, 4코어: 200~400, 8코어: 400~800
-      # 너무 높으면 컨텍스트 스위칭 오버헤드, 너무 낮으면 요청 대기(accept-count 큐로 넘어감)
       max: ${MAIN_TOMCAT_MAX_THREADS:300}
-      # min-spare: 항상 유지할 최소 유휴 스레드 수
-      # 범위: 10~max의 25% | 기준: 트래픽 급증 시 스레드 생성 지연 방지
-      # 스레드 생성에는 1~5ms 소요 → 트래픽 스파이크 시 병목
       min-spare: ${MAIN_TOMCAT_MIN_SPARE_THREADS:50}
-    # accept-count: 모든 스레드가 사용 중일 때 OS 레벨 TCP 대기 큐 크기
-    # 범위: 1~1000 | 기준: 순간 트래픽 스파이크 흡수량. max-threads의 50~100%
-    # 이 큐마저 가득 차면 OS가 연결 거부 (connection refused)
     accept-count: ${MAIN_TOMCAT_ACCEPT_COUNT:200}
-    # max-connections: NIO 커넥터가 수용할 최대 동시 연결 수
-    # 범위: 1000~65535 | 기준: keep-alive 연결 포함 전체 소켓 수. 기본 8192로 대부분 충분
     max-connections: ${MAIN_TOMCAT_MAX_CONNECTIONS:8192}
-    # [AWS 배포 시] K8s Pod CPU/메모리 리소스에 맞게 threads.max 조정
-    # Pod CPU 2코어: max=200, 4코어: max=400
 
 jwt:
   secret: ${JWT_SECRET}
@@ -95,6 +56,15 @@ jwt:
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:43200000}
 
 management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState, db, redis
   endpoints:
     web:
       exposure:
@@ -116,9 +86,14 @@ entry:
 
 aws:
   region: ${AWS_REGION:ap-northeast-2}
+  sdk:
+    connection-timeout-seconds: ${AWS_SDK_CONNECTION_TIMEOUT_SECONDS:5}
+    socket-timeout-seconds: ${AWS_SDK_SOCKET_TIMEOUT_SECONDS:5}
+    api-call-timeout-seconds: ${AWS_SDK_API_CALL_TIMEOUT_SECONDS:5}
+    api-call-attempt-timeout-seconds: ${AWS_SDK_API_CALL_ATTEMPT_TIMEOUT_SECONDS:5}
   s3:
     bucket: ${AWS_S3_BUCKET}
-    presign-expire-seconds: ${AWS_S3_PRESIGN_EXPIRE_SECONDS}
+    presign-expire-seconds: ${AWS_S3_PRESIGN_EXPIRE_SECONDS:300}
 
 api:
   url:
@@ -130,7 +105,6 @@ gateway:
 
 order:
   prepare-token:
-    # checkout prepare token TTL이다. queue pass token TTL, reservation TTL과는 별개다.
     ttl-seconds: ${MAIN_ORDER_PREPARE_TOKEN_TTL_SECONDS:300}
 
 toss:

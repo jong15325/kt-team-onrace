@@ -1,21 +1,22 @@
 'use client';
 
+import { useEventStore } from '@/features/event/store/useEventStore';
 import { Seller } from '@/features/event/types';
 import { useEffect, useState } from 'react';
 import { LuChevronDown, LuChevronUp } from 'react-icons/lu';
 
 export function SellerInfo({
-  seller,
   isOpen,
   onToggle,
 }: {
-  seller: Seller;
   isOpen: boolean;
   onToggle: () => void;
 }) {
   // 하이드레이션 오류 방지를 위한 마운트 상태 관리
   const [mounted, setMounted] = useState(false);
+  const { eventSaleInfo } = useEventStore();
 
+  const seller = eventSaleInfo?.seller;
   // 컴포넌트가 마운트된 후에만 렌더링을 허용
   useEffect(() => {
     setMounted(true);
@@ -46,49 +47,51 @@ export function SellerInfo({
         }`}
       >
         <div className="overflow-hidden">
-          <div className="grid grid-cols-2 md:grid-cols-4 border-t border-l border-gray-300 text-sm md:text-base">
-            {/* --- 행 1 --- */}
-            <div className="bg-gray-100 px-4 py-4 text-gray-600 border-b border-r border-gray-200 font-medium">
-              판매자 상호
-            </div>
-            <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
-              {seller.sellerName}
-            </div>
-            <div className="bg-gray-100 px-4 py-4 text-gray-600 border-b border-r border-gray-200 font-medium">
-              상업자 등록번호
-            </div>
-            <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
-              {seller.businessNo}
-            </div>
+          {seller && (
+            <div className="grid grid-cols-2 md:grid-cols-4 border-t border-l border-gray-300 text-sm md:text-base">
+              {/* --- 행 1 --- */}
+              <div className="bg-gray-100 px-4 py-4 text-gray-600 border-b border-r border-gray-200 font-medium">
+                판매자 상호
+              </div>
+              <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
+                {seller.sellerName}
+              </div>
+              <div className="bg-gray-100 px-4 py-4 text-gray-600 border-b border-r border-gray-200 font-medium">
+                상업자 등록번호
+              </div>
+              <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
+                {seller.businessNo}
+              </div>
 
-            {/* --- 행 2 --- */}
-            <div className="bg-gray-100 px-4 py-4 text-gray-600 border-b border-r border-gray-200 font-medium">
-              통신판매업 신고 번호
-            </div>
-            <div className="px-4 py-4 text-sm border-b border-r border-gray-200">
-              {seller.ecommerceNo}
-            </div>
-            <div className="bg-gray-100 px-4 py-4 text-gray-600 border-b border-r border-gray-200 font-medium">
-              통신판매자 중개자 여부
-            </div>
-            <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
-              {seller.isEcommerceMediator ? '통신판매중개' : '직접 판매'}
-            </div>
+              {/* --- 행 2 --- */}
+              <div className="bg-gray-100 px-4 py-4 text-gray-600 border-b border-r border-gray-200 font-medium">
+                통신판매업 신고 번호
+              </div>
+              <div className="px-4 py-4 text-sm border-b border-r border-gray-200">
+                {seller.ecommerceNo}
+              </div>
+              <div className="bg-gray-100 px-4 py-4 text-gray-600 border-b border-r border-gray-200 font-medium">
+                통신판매자 중개자 여부
+              </div>
+              <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
+                {seller.isEcommerceMediator ? '통신판매중개' : '직접 판매'}
+              </div>
 
-            {/* --- 행 3 --- */}
-            <div className="bg-gray-100 px-4 py-4 text-gray-600 border-b border-r border-gray-200 font-medium">
-              고객센터
+              {/* --- 행 3 --- */}
+              <div className="bg-gray-100 px-4 py-4 text-gray-600 border-b border-r border-gray-200 font-medium">
+                고객센터
+              </div>
+              <div className="px-4 py-4 text-sm border-b border-r border-gray-200">
+                {seller.customerService}
+              </div>
+              <div className="bg-gray-100 px-4 py-4 text-gray-600 border-b border-r border-gray-200 font-medium">
+                주소
+              </div>
+              <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
+                {seller.sellerAddress}
+              </div>
             </div>
-            <div className="px-4 py-4 text-sm border-b border-r border-gray-200">
-              {seller.customerService}
-            </div>
-            <div className="bg-gray-100 px-4 py-4 text-gray-600 border-b border-r border-gray-200 font-medium">
-              주소
-            </div>
-            <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
-              {seller.sellerAddress}
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </section>

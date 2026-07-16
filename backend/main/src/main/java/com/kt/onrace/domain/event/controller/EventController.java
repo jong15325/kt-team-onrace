@@ -18,6 +18,8 @@ import com.kt.onrace.domain.event.dto.EventSearchRequest;
 import com.kt.onrace.domain.event.dto.EventSalesInfoResponse;
 import com.kt.onrace.domain.event.service.EventService;
 import com.kt.onrace.domain.event.service.EventStockInitializer;
+import com.kt.onrace.domain.entry.dto.EntryResetResponse;
+import com.kt.onrace.domain.entry.service.EntryResetService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class EventController {
 
 	private final EventService eventService;
 	private final EventStockInitializer eventStockInitializer;
+	private final EntryResetService entryResetService;
 
 	@ApiLog
 	@GetMapping
@@ -69,6 +72,15 @@ public class EventController {
 	) {
 		eventStockInitializer.initializeEventStock(eventId);
 		return ApiResponse.success();
+	}
+
+	// [데모/관리] 신청 전체 초기화(신청+재고+대기열)
+	@ApiLog
+	@PostMapping("/{eventId}/reset")
+	public ApiResponse<EntryResetResponse> resetEvent(
+		@PathVariable Long eventId
+	) {
+		return ApiResponse.success(entryResetService.resetEvent(eventId));
 	}
 
 	@ApiLog

@@ -99,17 +99,29 @@ SelectContent.displayName = SelectPrimitive.Content.displayName;
 
 const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item> & {
+    price?: string;
+  } // price 프롭 추가
+>(({ className, children, price, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-4 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-4 pr-10 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}
     {...props}
   >
-    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    {/* 상품명과 가격을 양 끝으로 배치하기 위한 컨테이너 */}
+    <div className="flex w-full items-center justify-between gap-2">
+      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      {price && (
+        <span className="text-sm text-gray-500 tabular-nums">
+          +{Number(price).toLocaleString()}원
+        </span>
+      )}
+    </div>
+
+    {/* 체크 아이콘 (우측 끝 고정) */}
     <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
         <LuCheck className="h-4 w-4" />

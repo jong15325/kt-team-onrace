@@ -22,9 +22,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 
 /**
  * 부하테스트 데이터 셋업 API
- * local 프로필에서만 활성화
  */
-@Profile("local")
 @ApiLog
 @RestController
 @RequiredArgsConstructor

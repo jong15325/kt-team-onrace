@@ -1,19 +1,17 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { ThumbnailImg } from '@/features/event/types';
+import { useEventStore } from '@/features/event/store/useEventStore';
 import { useEffect, useState } from 'react';
 import { MdChevronLeft, MdChevronRight, MdImage } from 'react-icons/md';
 
-export function EventThumbnail({
-  thumbnailImg = [],
-}: {
-  thumbnailImg: ThumbnailImg[];
-}) {
+export function EventThumbnail() {
   // 하이드레이션 오류 방지를 위한 마운트 상태 관리
   const [mounted, setMounted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { eventDetails } = useEventStore();
 
+  const thumbnailImg = eventDetails?.thumbnailImg ?? [];
   const images = thumbnailImg?.map((item) => item.url) ?? [];
   const hasMultipleImages = images.length > 1;
 

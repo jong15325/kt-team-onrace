@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -22,7 +21,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.redisson.api.RBucket;
+import org.redisson.api.BatchOptions;
+import org.redisson.api.RBatch;
+import org.redisson.api.RBucketAsync;
 import org.redisson.api.RDeque;
 import org.redisson.api.RLock;
 import org.redisson.api.RScoredSortedSet;
@@ -31,6 +32,7 @@ import org.redisson.api.RSet;
 import org.redisson.api.RedissonClient;
 import org.redisson.client.codec.Codec;
 
+import com.kt.onrace.queue.config.QueueMetrics;
 import com.kt.onrace.queue.config.QueueProperties;
 import com.kt.onrace.queue.security.QueueTokenGenerator;
 
@@ -48,12 +50,14 @@ class QueueBatchSchedulerTest {
 	@Mock private RedissonClient redissonClient;
 	@Mock private QueueProperties queueProperties;
 	@Mock private QueueTokenGenerator queueTokenGenerator;
+	@Mock private QueueMetrics queueMetrics;
 
 	@Mock private RSet<String> activePaces;
 	@Mock private RLock lock;
 	@Mock private RDeque<String> retryQueue;
 	@Mock private RScoredSortedSet<String> waitingSet;
-	@Mock private RBucket<String> passBucket;
+	@Mock private RBatch rBatch;
+	@Mock private RBucketAsync<String> batchBucket;
 	@Mock private RScript rScript;
 
 	@InjectMocks
@@ -107,9 +111,14 @@ class QueueBatchSchedulerTest {
 		when(waitingSet.pollFirst(any(int.class))).thenReturn(List.of());
 	}
 
+	private void givenPipelineBatch() {
+		when(redissonClient.createBatch(any(BatchOptions.class))).thenReturn(rBatch);
+		doReturn(batchBucket).when(rBatch).getBucket(anyString(), any(Codec.class));
+	}
+
 	private void givenTokenGeneration() {
 		when(queueTokenGenerator.generatePassToken(anyLong(), anyLong())).thenReturn(PASS_TOKEN);
-		doReturn(passBucket).when(redissonClient).getBucket(anyString(), any(Codec.class));
+		givenPipelineBatch();
 	}
 
 	private void givenLuaScript() {
@@ -123,7 +132,7 @@ class QueueBatchSchedulerTest {
 	class NormalFlow {
 
 		@Test
-		@DisplayName("대기열 사용자가 정상적으로 통과 토큰을 발급받는다")
+		@DisplayName("대기열 사용자가 파이프라인으로 통과 토큰을 발급받는다")
 		void processBatch_issuesPassToken() throws InterruptedException {
 			// given
 			givenBatchProperties();
@@ -139,12 +148,13 @@ class QueueBatchSchedulerTest {
 
 			// then
 			verify(queueTokenGenerator).generatePassToken(USER_ID, PACE_ID);
-			verify(passBucket).set(eq(PASS_TOKEN), eq(PASS_TTL), eq(TimeUnit.SECONDS));
+			verify(batchBucket).setAsync(eq(PASS_TOKEN), eq(PASS_TTL), eq(TimeUnit.SECONDS));
+			verify(rBatch).execute();
 			verify(lock).unlock();
 		}
 
 		@Test
-		@DisplayName("여러 pace가 각각 독립적으로 처리된다")
+		@DisplayName("여러 pace가 각각 독립적으로 병렬 처리된다")
 		void processBatch_multiPace() throws InterruptedException {
 			// given
 			givenBatchProperties();
@@ -161,6 +171,7 @@ class QueueBatchSchedulerTest {
 			// then
 			verify(lock, times(2)).tryLock(eq(0L), eq(30L), eq(TimeUnit.SECONDS));
 			verify(queueTokenGenerator, times(2)).generatePassToken(eq(USER_ID), anyLong());
+			verify(rBatch, times(2)).execute();
 		}
 	}
 
@@ -171,7 +182,7 @@ class QueueBatchSchedulerTest {
 	class RetryQueueTest {
 
 		@Test
-		@DisplayName("토큰 발급 실패 시 재시도 큐에 등록된다")
+		@DisplayName("토큰 생성 실패 시 재시도 큐에 등록된다")
 		void processBatch_tokenFailure_addedToRetryQueue() throws InterruptedException {
 			// given
 			givenBatchProperties();

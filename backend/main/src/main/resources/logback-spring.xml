@@ -7,15 +7,17 @@
         <springProfile name="dev">
             <logger name="com.kt.onrace" level="INFO"/>
             <root level="WARN">
-                <appender-ref ref="JSON_CONSOLE"/>
-                <appender-ref ref="JSON_FILE"/>
+                <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+                <appender-ref ref="ASYNC_JSON_FILE"/>
             </root>
         </springProfile>
         <springProfile name="prod">
-            <logger name="com.kt.onrace" level="WARN"/>
+            <!-- AOP 요청 추적 로그는 prod에서 제외 (Prometheus 메트릭으로 대체) -->
+            <logger name="com.kt.onrace.common.logging.aspect" level="WARN"/>
+            <logger name="com.kt.onrace" level="INFO"/>
             <root level="WARN">
-                <appender-ref ref="JSON_CONSOLE"/>
-                <appender-ref ref="JSON_FILE"/>
+                <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+                <appender-ref ref="ASYNC_JSON_FILE"/>
             </root>
         </springProfile>
     </springProfile>

@@ -22,6 +22,8 @@ export default function Body() {
   const router = useRouter();
 
   const [events, setEvents] = useState<Event[]>([]);
+
+  const [mainEvents, setMainEvents] = useState<Event[]>([]);
   const { setEvent } = useEventStore();
 
   const displayStatusLabel = (status: string) => {
@@ -29,7 +31,7 @@ export default function Body() {
 
     switch (status) {
       case 'READY':
-        const dateStr = '2026-03-15T09:00:00';
+        const dateStr = '2026-06-15T09:00:00';
         const date = new Date(dateStr);
 
         const formattedDate = new Intl.DateTimeFormat('ko-KR', {
@@ -63,8 +65,12 @@ export default function Body() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const result = await eventService.getEvents();
+        const result = await eventService.getEvents({ size: 5 });
+        const filterData = result.data.content.filter(
+          (item) => item.id !== 4 && item.id !== 5,
+        );
         setEvents(result.data.content);
+        setMainEvents(filterData);
       } catch (error) {
         console.error('데이터 로드 실패:', error);
       }
@@ -89,8 +95,8 @@ export default function Body() {
 
           {/* 이벤트 리스트 */}
           <div>
-            {events && events.length > 0 ? (
-              events.map((event) => (
+            {mainEvents && mainEvents.length > 0 ? (
+              mainEvents.map((event) => (
                 <div
                   key={event.id}
                   className="flex flex-row items-center justify-between p-6 py-8 mb-4 bg-gray-50"

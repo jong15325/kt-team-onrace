@@ -10,7 +10,7 @@ export const MOCK_ACCOUNT_INFO: AccountInfo = {
     {
       id: 1,
       label: '우리집',
-      receiverName: '홍길동',
+      receiverName: '김유저',
       phoneNumber: '01012345678',
       zipcode: '12345',
       address1: '서울특별시 강남구 테헤란로 123',
@@ -21,7 +21,7 @@ export const MOCK_ACCOUNT_INFO: AccountInfo = {
     {
       id: 2,
       label: '회사',
-      receiverName: '홍길동',
+      receiverName: '김유저',
       phoneNumber: '01099998888',
       zipcode: '54321',
       address1: '서울특별시 강남구 테헤란로 123',

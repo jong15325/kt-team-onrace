@@ -36,7 +36,7 @@ export default function SystemInfoContent() {
 
   return (
     <section ref={containerRef} className="bg-secondary">
-      <div className="relative flex flex-col items-center w-full p-30  min-h-fit">
+      <div className="relative flex flex-col items-center w-full  min-h-fit">
         <div className="absolute inset-0 z-0 pointer-events-none">
           <Image
             src="/image/systemInfo/bg-pattern2.svg"
@@ -48,7 +48,7 @@ export default function SystemInfoContent() {
           />
         </div>
 
-        <div className="relative z-10 grid grid-cols-3 gap-x-20 gap-y-4">
+        <div className="relative z-10 grid grid-cols-3 gap-x-20 gap-y-4 px-30 py-30">
           {/* 타이틀 구역 */}
           <div className={`col-span-2 self-start ${revealBase}`}>
             <h2 className="text-5xl font-bold mb-3">The Right to Run</h2>

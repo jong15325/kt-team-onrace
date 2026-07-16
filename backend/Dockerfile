@@ -10,7 +10,8 @@ COPY auth/build.gradle ./auth/build.gradle
 COPY main/build.gradle ./main/build.gradle
 COPY queue/build.gradle ./queue/build.gradle
 
-RUN chmod +x ./gradlew
+# Windows 체크아웃(CRLF)에서도 리눅스 컨테이너에서 실행되도록 줄바꿈 정규화 후 실행권한 부여
+RUN sed -i 's/\r$//' ./gradlew && chmod +x ./gradlew
 
 ARG SERVICE
 
@@ -24,6 +25,9 @@ FROM amazoncorretto:21-alpine-jdk AS runtime
 
 WORKDIR /app
 
+ENV AWS_EC2_METADATA_DISABLED=true \
+    AWS_METADATA_SERVICE_TIMEOUT=1
+
 COPY --from=builder /workspace/app.jar /app/app.jar
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-Daws.disableEc2Metadata=true", "-Daws.disableEc2MetadataV1=true", "-Daws.ec2MetadataServiceTimeout=1", "-Dcom.amazonaws.sdk.disableEc2Metadata=true", "-jar", "/app/app.jar"]

@@ -1,9 +1,13 @@
 import { useState, useMemo } from 'react';
-import { Event } from '@/features/event/types';
+import { EventSearchQuery } from '@/features/event/types';
 
+/**
+ * 이벤트 목록 필터 상태를 보관하고, 백엔드 EventSearchRequest 와 정합되는
+ * query 객체(EventSearchQuery)를 만들어 준다. (서버사이드 필터링)
+ * 거리(km)는 미터로, 날짜는 yyyy-MM-dd(LocalDate)로 변환한다.
+ */
 export function useMarathonFilter(
-  events: Event[],
-  initialSearchDistance = { min: 0, max: 100 },
+  initialSearchDistance = { min: 0, max: 42.195 },
   initialSearchDate = {
     start: null as string | null,
     end: null as string | null,
@@ -18,108 +22,41 @@ export function useMarathonFilter(
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [searchType, setSearchType] = useState(initialSearchType);
 
-  const formatToLocalISO = (date: Date | string | null): string | null => {
+  // Date | string | null → yyyy-MM-dd (LocalDate)
+  const toLocalDate = (date: Date | string | null): string | null => {
     if (!date) return null;
     const d = new Date(date);
-
-    // 유효하지 않은 날짜 체크
     if (isNaN(d.getTime())) return null;
-
     const pad = (n: number) => n.toString().padStart(2, '0');
-
-    const year = d.getFullYear();
-    const month = pad(d.getMonth() + 1);
-    const day = pad(d.getDate());
-    const hours = pad(d.getHours());
-    const minutes = pad(d.getMinutes());
-    const seconds = pad(d.getSeconds());
-
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   };
 
-  // 날짜 변경 시 Date 객체를 받아도 자동으로 포맷팅해주는 래퍼 함수
   const handleSetSearchDate = (range: {
     start: Date | string | null;
     end: Date | string | null;
   }) => {
     setSearchDate({
-      start: formatToLocalISO(range.start),
-      end: formatToLocalISO(range.end),
+      start: toLocalDate(range.start),
+      end: toLocalDate(range.end),
     });
   };
 
-  const filteredEvents = useMemo(() => {
-    return events.filter((event) => {
-      // 지역 필터 (null, undefined, 'all', 빈 문자열일 경우 전체 허용)
-      const isNoLocationFilter =
-        !searchLocation ||
-        searchLocation.toLocaleUpperCase() === 'ALL' ||
-        searchLocation.trim() === '';
-
-      const locationMatch = isNoLocationFilter
-        ? true
-        : event.venue
-            ?.toLocaleUpperCase()
-            .includes(searchLocation.trim().toLocaleUpperCase());
-
-      // 검색어 필터 (null, 빈 문자열일 경우 전체 허용)
-      const isNoSearchFilter = !searchTerm || searchTerm.trim() === '';
-      const titleMatch = isNoSearchFilter
-        ? true
-        : event.title
-            ?.toLocaleUpperCase()
-            .includes(searchTerm.trim().toLocaleUpperCase());
-
-      // 거리 필터 (searchDistance 자체가 null이거나 특정 조건일 때 처리)
-      const isNoDistanceFilter = !searchDistance;
-      const eventDistances = event.courses;
-      // const distanceMatch = isNoDistanceFilter
-      //   ? true
-      //   : eventDistances.some(
-      //       (d) =>
-      //         d.distanceM / 1000 >= searchDistance.min &&
-      //         d.distanceM / 1000 <= searchDistance.max,
-      //     );
-
-      // 날짜 필터 (start와 end가 모두 null이면 전체 허용)
-      const eventDateStr = event.eventAt;
-
-      const isNoDateFilter = !searchDate.start && !searchDate.end;
-      const startDateMatch =
-        !searchDate.start || eventDateStr >= searchDate.start;
-      const endDateMatch = !searchDate.end || eventDateStr <= searchDate.end;
-
-      const dateMatch = isNoDateFilter ? true : startDateMatch && endDateMatch;
-
-      // 카테고리 필터
-      const isNoCategoryFilter =
-        !searchType ||
-        searchType.toLocaleUpperCase() === 'ALL' ||
-        searchType.trim() === '';
-
-      const categoryMatch = isNoCategoryFilter
-        ? true
-        : event.type
-            ?.toLocaleUpperCase()
-            .includes(searchType.trim().toLocaleUpperCase());
-
-      // 모든 조건을 통과해야 결과에 포함
-      return (
-        locationMatch &&
-        titleMatch &&
-        // distanceMatch &&
-        dateMatch &&
-        categoryMatch
-      );
-    });
-  }, [
-    events,
-    searchTerm,
-    searchLocation,
-    searchDistance,
-    searchDate,
-    searchType,
-  ]);
+  // 백엔드 EventSearchRequest 와 정합되는 쿼리 객체
+  const query: EventSearchQuery = useMemo(() => {
+    const q: EventSearchQuery = {};
+    if (searchType && searchType !== 'ALL') q.type = searchType;
+    if (searchLocation && searchLocation !== 'ALL') q.region = searchLocation;
+    if (searchTerm && searchTerm.trim()) q.keyword = searchTerm.trim();
+    if (searchDate.start) q.eventStartDate = searchDate.start;
+    if (searchDate.end) q.eventEndDate = searchDate.end;
+    if (searchDistance) {
+      const min = Math.round(searchDistance.min * 1000);
+      const max = Math.round(searchDistance.max * 1000);
+      if (min > 0) q.minDistance = min;
+      if (max < 42195) q.maxDistance = max;
+    }
+    return q;
+  }, [searchType, searchLocation, searchTerm, searchDate, searchDistance]);
 
   return {
     searchLocation,
@@ -132,6 +69,6 @@ export function useMarathonFilter(
     setSearchDistance,
     setSearchDate: handleSetSearchDate,
     setSearchType,
-    filteredEvents,
+    query,
   };
 }

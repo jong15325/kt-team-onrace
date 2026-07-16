@@ -13,7 +13,7 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { Trend, Rate, Counter } from 'k6/metrics';
+import { Trend, Rate, Counter, Gauge } from 'k6/metrics';
 import { batchLoginAll, authHeaders } from '../lib/auth.js';
 import { setupTestData } from '../lib/setup.js';
 import { assignPace } from '../lib/distribution.js';
@@ -27,6 +27,7 @@ import {
   BP_STEP_DURATION_SEC, BP_RAMP_SEC,
   BP_ERROR_THRESHOLD, BP_P95_THRESHOLD_MS,
   BP_SCENARIO_FLOW, BP_LOGIN_POOL,
+  HOT_PACE_RATIO,
 } from '../lib/config.js';
 import {
   generateStaircaseStages,
@@ -46,9 +47,16 @@ const applyOk        = new Counter('apply_ok');
 const applyDup       = new Counter('apply_dup');
 const confirmOk      = new Counter('confirm_ok');
 const unexpectedErr  = new Counter('unexpected_error');
-const blocked        = new Counter('blocked');
+// 비즈니스 차단 카운터를 원인별로 분리 — FIRST_COME_QUEUE 플로우 전용
+const blockedQueueDup     = new Counter('blocked_queue_dup');     // 409: 대기열 이미 진입
+const blockedTokenExpired = new Counter('blocked_token_expired'); // 429: passToken 만료
 const queuePass      = new Counter('queue_pass');
 const queueTimeout   = new Counter('queue_timeout');
+// 재고 검증 결과 Gauge (teardown에서 기록) — FIRST_COME / FIRST_COME_QUEUE 전용
+const stockOverselling    = new Gauge('stock_overselling');
+const stockDbRedisMatch   = new Gauge('stock_db_redis_match');
+const stockDbConfirmed    = new Gauge('stock_db_confirmed');
+const stockRedisRemaining = new Gauge('stock_redis_remaining');
 
 // ── 동적 stages 생성 ──
 const stages = generateStaircaseStages(
@@ -225,6 +233,10 @@ function doFirstCome(eventId, courseId, paceId, headers) {
 
     if (confirmRes.status === 200) {
       confirmOk.add(1);
+    } else {
+      unexpectedErr.add(1);
+      errorRate.add(true);
+      errorLog(__VU, `결제 확정 실패 (${confirmRes.status})`);
     }
   } else if (res.status === 409 || res.status === 400) {
     applyDup.add(1);
@@ -257,7 +269,7 @@ function doFirstComeQueue(eventId, courseId, paceId, headers) {
 
   // 409: QUEUE_ALREADY_ENTERED — 비즈니스 차단 (에러 아님)
   if (enterRes.status === 409) {
-    blocked.add(1);
+    blockedQueueDup.add(1);
     errorRate.add(false);
     return;
   }
@@ -329,10 +341,14 @@ function doFirstComeQueue(eventId, courseId, paceId, headers) {
     );
     if (confirmRes.status === 200) {
       confirmOk.add(1);
+    } else {
+      unexpectedErr.add(1);
+      errorRate.add(true);
+      errorLog(__VU, `결제 확정 실패 (${confirmRes.status})`);
     }
   } else if (applyRes.status === 429) {
     // passToken 만료 — 비즈니스 차단 (에러 아님)
-    blocked.add(1);
+    blockedTokenExpired.add(1);
     errorRate.add(false);
   } else if (applyRes.status === 409 || applyRes.status === 400) {
     applyDup.add(1);
@@ -387,6 +403,12 @@ export function teardown(data) {
   }
 
   const s = res.json().data;
+
+  // 통합 리포트(handleSummary)에서 사용하도록 Gauge로 기록
+  stockOverselling.add(s.overselling ? 1 : 0);
+  stockDbRedisMatch.add(s.dbRedisMatch ? 1 : 0);
+  stockDbConfirmed.add(s.dbConfirmedStock);
+  stockRedisRemaining.add(s.redisRemainingStock);
 
   console.log('');
   console.log('========================================');

@@ -1,7 +1,9 @@
 import { mypageApi } from './api';
 import { mypageMock } from './mock';
 
-const IS_MOCK = process.env.NEXT_PUBLIC_API_MODE === 'mock';
-
-// 환경 변수에 따라 실제 사용할 객체를 내보냄
-export const myPageService = IS_MOCK ? mypageMock : mypageApi;
+// 회원정보(getAccountInfo)·신청내역(getEntriesHistory)은 실연동, 나머지(대기/주문)는 아직 mock
+export const myPageService = {
+  ...mypageMock,
+  getAccountInfo: mypageApi.getAccountInfo,
+  getEntriesHistory: mypageApi.getEntriesHistory,
+};

@@ -9,57 +9,68 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useEventStore } from '@/features/event/store/useEventStore';
 
-export function EntryOptions({
-  selectedCourse,
-  setSelectedCourse,
-  selectedPace,
-  setSelectedPace,
-}: {
-  selectedCourse: string;
-  setSelectedCourse: React.Dispatch<React.SetStateAction<string>>;
-  selectedPace: string;
-  setSelectedPace: React.Dispatch<React.SetStateAction<string>>;
-}) {
-  // 하이드레이션 오류 방지를 위한 마운트 상태 관리
+export function EntryOptions() {
+  const {
+    eventDetails,
+    courseId,
+    paceId,
+    setCourse,
+    setPace,
+    setCourseId,
+    setPaceId,
+  } = useEventStore();
   const [mounted, setMounted] = useState(false);
 
-  const courses = [
-    { value: '5km', label: '5km' },
-    { value: '10km', label: '10km' },
-    { value: 'Half', label: 'Half' },
-    { value: 'Full', label: 'Full' },
-  ];
-  const paces = [
-    { label: 'Sub-3 (2:59:59)', value: '179' },
-    { label: '3시간 30분', value: '210' },
-    { label: 'Sub-4 (3:59:59)', value: '239' },
-    { label: '4시간 30분', value: '270' },
-    { label: '5시간 완주', value: '300' },
-  ];
-  // 컴포넌트가 마운트된 후에만 렌더링을 허용
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // 아직 마운트되지 않았다면 껍데기(Skeleton) 혹은 null 반환
   if (!mounted) {
-    return <div className="mb-6 min-h-[100px]" />; // 레이아웃 시프트를 방지하기 위해 최소 높이 설정
+    return <div className="mb-6 min-h-[100px]" />;
   }
+
+  // 실제 이벤트 코스/페이스 (getEventDetails 로 이미 적재됨)
+  const courses = eventDetails?.courses ?? [];
+  const selectedCourse = courses.find((c) => c.id === courseId);
+  const paces = selectedCourse?.paces ?? [];
+
+  const handleCourseChange = (val: string) => {
+    const id = Number(val);
+    const c = courses.find((co) => co.id === id);
+    setCourseId(id);
+    setCourse(c?.name ?? '');
+    // 코스 변경 시 페이스 초기화
+    setPaceId(null);
+    setPace('');
+  };
+
+  const handlePaceChange = (val: string) => {
+    const id = Number(val);
+    const p = paces.find((pa) => pa.id === id);
+    setPaceId(id);
+    setPace(
+      p ? `${p.name} (${p.hour}:${String(p.minutes).padStart(2, '0')})` : '',
+    );
+  };
 
   return (
     <section>
       {/* 코스 선택 */}
-      <div className="py-2">
+      <div className="p-2">
         <label className="text-base font-semibold">코스*</label>
-        <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+        <Select
+          value={courseId != null ? String(courseId) : undefined}
+          onValueChange={handleCourseChange}
+        >
           <SelectTrigger variant="default">
-            <SelectValue placeholder="코스을 선택하세요" />
+            <SelectValue placeholder="코스를 선택하세요" />
           </SelectTrigger>
           <SelectContent>
-            {courses.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
+            {courses.map((c) => (
+              <SelectItem key={c.id} value={String(c.id)}>
+                {c.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -67,16 +78,24 @@ export function EntryOptions({
       </div>
 
       {/* 페이스 선택 */}
-      <div className="py-2">
-        <label className="text-base font-semibold">페이스</label>
-        <Select value={selectedPace} onValueChange={setSelectedPace}>
+      <div className="p-2">
+        <label className="text-base font-semibold">페이스*</label>
+        <Select
+          value={paceId != null ? String(paceId) : undefined}
+          onValueChange={handlePaceChange}
+          disabled={courseId == null}
+        >
           <SelectTrigger variant="default">
-            <SelectValue placeholder="페이스를 선택하세요" />
+            <SelectValue
+              placeholder={
+                courseId == null ? '코스를 먼저 선택하세요' : '페이스를 선택하세요'
+              }
+            />
           </SelectTrigger>
           <SelectContent>
-            {paces.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
+            {paces.map((p) => (
+              <SelectItem key={p.id} value={String(p.id)}>
+                {p.name} ({p.hour}:{String(p.minutes).padStart(2, '0')})
               </SelectItem>
             ))}
           </SelectContent>

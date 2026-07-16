@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { CourseDetails } from '@/features/event/types';
+import { useEventStore } from '@/features/event/store/useEventStore';
 import { useEffect, useState } from 'react';
 import {
   LuDroplet,
@@ -13,11 +13,15 @@ import {
 } from 'react-icons/lu';
 import { MdAccessTime, MdImage } from 'react-icons/md';
 
-export function EventCourse({ courses = [] }: { courses: CourseDetails[] }) {
+export function EventCourse() {
   const [mounted, setMounted] = useState(false);
   // 현재 선택된 코스의 인덱스 상태 추가
   const [isError, setIsError] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  const { eventDetails } = useEventStore();
+  const courses = eventDetails?.courses ?? [];
+
   const currentCourse = courses?.[currentIndex];
 
   useEffect(() => {

@@ -18,7 +18,9 @@ import com.solapi.sdk.message.model.Message;
 import com.solapi.sdk.message.service.DefaultMessageService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SmsVerifyService {
@@ -98,7 +100,7 @@ public class SmsVerifyService {
 		try {
 			this.messageService.send(message, null);
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("[SMS] 문자 발송 실패 - phoneNumber={}", phoneNumber, e);
 			throw new BusinessException(BusinessErrorCode.COMMON_SYSTEM_ERROR);
 		}
 	}

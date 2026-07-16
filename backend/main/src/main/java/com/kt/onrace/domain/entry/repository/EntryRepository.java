@@ -26,5 +26,8 @@ public interface EntryRepository extends JpaRepository<Entry, Long>, EntryReposi
 
 	void deleteByUserIdAndEventId(Long userId, Long eventId);
 
+	// [데모/관리] 이벤트의 모든 신청 삭제 → 삭제 건수 반환
+	long deleteByEventId(Long eventId);
+
 	Optional<Entry> findByUserIdAndEventPaceId(Long userId, Long eventPaceId);
 }

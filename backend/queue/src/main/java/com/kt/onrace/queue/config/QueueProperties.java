@@ -13,4 +13,6 @@ public class QueueProperties {
 	private final long intervalMs;
 	private final long passTtlSeconds;
 	private final String tokenSecret;
+	private final long pollBaseMs;
+	private final long pollJitterMs;
 }

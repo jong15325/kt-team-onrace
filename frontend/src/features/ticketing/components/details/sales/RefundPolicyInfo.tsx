@@ -1,21 +1,22 @@
 'use client';
 
-import { RefundPolicy } from '@/features/event/types';
+import { useEventStore } from '@/features/event/store/useEventStore';
 import { formatKoreanDate } from '@/features/ticketing/utils/date';
 import { useEffect, useState } from 'react';
 import { LuChevronDown, LuChevronUp } from 'react-icons/lu';
 
 export function RefundPolicyInfo({
-  refundPolicy,
   isOpen,
   onToggle,
 }: {
-  refundPolicy: RefundPolicy;
   isOpen: boolean;
   onToggle: () => void;
 }) {
   // 하이드레이션 오류 방지를 위한 마운트 상태 관리
   const [mounted, setMounted] = useState(false);
+  const { eventSaleInfo } = useEventStore();
+
+  const refundPolicy = eventSaleInfo?.refundPolicy;
 
   // 컴포넌트가 마운트된 후에만 렌더링을 허용
   useEffect(() => {
@@ -48,52 +49,54 @@ export function RefundPolicyInfo({
         }`}
       >
         <div className="overflow-hidden">
-          <div className="grid grid-cols-2 md:grid-cols-4 border-t border-l border-gray-300 text-sm md:text-base">
-            {/* --- 행 1 (환불 가능 기간 / 환불 불가 시점) --- */}
-            <div className="bg-gray-100 px-4 py-4 font-medium text-gray-600 border-b border-r border-gray-200">
-              환불 가능 기간
-            </div>
-            <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
-              {formatKoreanDate(refundPolicy.refundStartAt)} ~{' '}
-              {formatKoreanDate(refundPolicy.refundEndAt)}
-            </div>
-            <div className="bg-gray-100 px-4 py-4 font-medium text-gray-600 border-b border-r border-gray-200">
-              환불 불가 시점
-            </div>
-            <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
-              {formatKoreanDate(refundPolicy.nonRefundableAt)}
-            </div>
+          {refundPolicy && (
+            <div className="grid grid-cols-2 md:grid-cols-4 border-t border-l border-gray-300 text-sm md:text-base">
+              {/* --- 행 1 (환불 가능 기간 / 환불 불가 시점) --- */}
+              <div className="bg-gray-100 px-4 py-4 font-medium text-gray-600 border-b border-r border-gray-200">
+                환불 가능 기간
+              </div>
+              <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
+                {formatKoreanDate(refundPolicy.refundStartAt)} ~{' '}
+                {formatKoreanDate(refundPolicy.refundEndAt)}
+              </div>
+              <div className="bg-gray-100 px-4 py-4 font-medium text-gray-600 border-b border-r border-gray-200">
+                환불 불가 시점
+              </div>
+              <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
+                {formatKoreanDate(refundPolicy.nonRefundableAt)}
+              </div>
 
-            {/* --- 행 2 (취소 수수료 / 양도 가능여부) --- */}
-            <div className="bg-gray-100 px-4 py-4 font-medium text-gray-600 border-b border-r border-gray-200">
-              취소 수수료 기준
-            </div>
-            <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
-              {refundPolicy.cancellationFee}
-            </div>
-            <div className="bg-gray-100 px-4 py-4 font-medium text-gray-600 border-b border-r border-gray-200">
-              양도 가능여부
-            </div>
-            <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
-              {refundPolicy.isTransferable ? '가능' : '불가능'}
-            </div>
+              {/* --- 행 2 (취소 수수료 / 양도 가능여부) --- */}
+              <div className="bg-gray-100 px-4 py-4 font-medium text-gray-600 border-b border-r border-gray-200">
+                취소 수수료 기준
+              </div>
+              <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
+                {refundPolicy.cancellationFee}
+              </div>
+              <div className="bg-gray-100 px-4 py-4 font-medium text-gray-600 border-b border-r border-gray-200">
+                양도 가능여부
+              </div>
+              <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200">
+                {refundPolicy.isTransferable ? '가능' : '불가능'}
+              </div>
 
-            {/* --- 행 3 (환불 취소 정책 - 전체 너비) --- */}
-            <div className="bg-gray-100 px-4 py-4 font-medium text-gray-600 border-b border-r border-gray-200 col-span-1">
-              환불 취소 정책
-            </div>
-            <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200 col-span-1 md:col-span-3">
-              {refundPolicy.refundPolicy}
-            </div>
+              {/* --- 행 3 (환불 취소 정책 - 전체 너비) --- */}
+              <div className="bg-gray-100 px-4 py-4 font-medium text-gray-600 border-b border-r border-gray-200 col-span-1">
+                환불 취소 정책
+              </div>
+              <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200 col-span-1 md:col-span-3">
+                {refundPolicy.refundPolicy}
+              </div>
 
-            {/* --- 행 4 (우천/천재지변 시 환불정책 - 전체 너비) --- */}
-            <div className="bg-gray-100 px-4 py-4 font-medium text-gray-600 border-b border-r border-gray-200 col-span-1">
-              우천/천재지변 시 환불정책
+              {/* --- 행 4 (우천/천재지변 시 환불정책 - 전체 너비) --- */}
+              <div className="bg-gray-100 px-4 py-4 font-medium text-gray-600 border-b border-r border-gray-200 col-span-1">
+                우천/천재지변 시 환불정책
+              </div>
+              <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200 col-span-1 md:col-span-3">
+                {refundPolicy.weatherRefund}
+              </div>
             </div>
-            <div className="px-4 py-4 text-sm text-gray-900 border-b border-r border-gray-200 col-span-1 md:col-span-3">
-              {refundPolicy.weatherRefund}
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </section>

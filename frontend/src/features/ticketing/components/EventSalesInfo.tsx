@@ -9,14 +9,14 @@ import {
 } from './details/sales';
 import { eventService } from '@/features/event/services';
 import { useParams } from 'next/navigation';
-import { SalesInfo } from '@/features/event/types';
+import { useEventStore } from '@/features/event/store/useEventStore';
 
 export function EventSalesInfo() {
   const params = useParams();
+  const { event, setEventSaleInfo } = useEventStore();
 
   const [mounted, setMounted] = useState<boolean>(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(0);
-  const [salesInfo, setSalesInfo] = useState<SalesInfo>();
 
   const toggleSection = (index: number) => {
     // 이미 열려있는걸 누르면 닫고(null), 아니면 해당 인덱스를 엶
@@ -36,10 +36,10 @@ export function EventSalesInfo() {
         if (event) {
           const eventId = String(params.id);
           const response = await eventService.getSalesInfo(eventId);
-          setSalesInfo((prev) => ({
-            ...prev,
-            ...response.data,
-          }));
+
+          if (response.success) {
+            setEventSaleInfo(response.data);
+          }
         }
       } catch (error) {
         console.error('데이터 로드 실패:', error);
@@ -56,36 +56,31 @@ export function EventSalesInfo() {
 
   return (
     <div className="space-y-4 mb-6">
-      {salesInfo && (
-        <div>
-          {/* 판매자 정보 */}
-          <SellerInfo
-            seller={salesInfo.seller}
-            isOpen={activeIndex === 0}
-            onToggle={() => toggleSection(0)}
-          />
+      <div>
+        {/* 판매자 정보 */}
+        <SellerInfo
+          isOpen={activeIndex === 0}
+          onToggle={() => toggleSection(0)}
+        />
 
-          {/* 배송 정보 */}
-          <DeliveryInfo
-            delivery={salesInfo.delivery}
-            isOpen={activeIndex === 1}
-            onToggle={() => toggleSection(1)}
-          />
+        {/* 배송 정보 */}
+        <DeliveryInfo
+          isOpen={activeIndex === 1}
+          onToggle={() => toggleSection(1)}
+        />
 
-          {/* 취소 및 환불 정책 */}
-          <RefundPolicyInfo
-            refundPolicy={salesInfo.refundPolicy}
-            isOpen={activeIndex === 2}
-            onToggle={() => toggleSection(2)}
-          />
+        {/* 취소 및 환불 정책 */}
+        <RefundPolicyInfo
+          isOpen={activeIndex === 2}
+          onToggle={() => toggleSection(2)}
+        />
 
-          {/* 운영 정책 */}
-          <OperatingPolicy
-            isOpen={activeIndex === 3}
-            onToggle={() => toggleSection(3)}
-          />
-        </div>
-      )}
+        {/* 운영 정책 */}
+        <OperatingPolicy
+          isOpen={activeIndex === 3}
+          onToggle={() => toggleSection(3)}
+        />
+      </div>
     </div>
   );
 }

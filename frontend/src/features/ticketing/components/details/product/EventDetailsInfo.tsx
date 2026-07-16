@@ -1,17 +1,16 @@
 'use client';
 
+import { useEventStore } from '@/features/event/store/useEventStore';
 import { DetailImg } from '@/features/event/types';
 import { useEffect, useState } from 'react';
 import { MdImage } from 'react-icons/md';
 
-export function EventDetailsInfo({
-  detailImgList,
-}: {
-  detailImgList: DetailImg[];
-}) {
+export function EventDetailsInfo() {
   // 하이드레이션 오류 방지를 위한 마운트 상태 관리
   const [mounted, setMounted] = useState<boolean>(false);
   const [detailImg, setDetailImg] = useState<DetailImg>();
+
+  const { eventDetails } = useEventStore();
 
   // 컴포넌트가 마운트된 후에만 렌더링을 허용
   useEffect(() => {
@@ -23,6 +22,7 @@ export function EventDetailsInfo({
     const fetchData = async () => {
       if (!mounted) return;
 
+      const detailImgList = eventDetails?.detailImg ?? [];
       if (detailImgList && detailImgList.length > 0) {
         setDetailImg(detailImgList[0]);
       }

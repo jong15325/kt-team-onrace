@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
 import Image from 'next/image';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Header() {
   const { data: session } = useSession();
@@ -14,8 +14,6 @@ export default function Header() {
   const pathname = usePathname();
 
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isScrolling, setIsScrolling] = useState(false);
-  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const isHome = pathname === '/';
   const isLoggedIn =
@@ -23,65 +21,34 @@ export default function Header() {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (!isHome) return;
-
-      // 현재 스크롤이 최상단인지 체크
-      const currentScrollY = window.scrollY;
-      setIsScrolled(currentScrollY > 50);
-
-      // 스크롤 시작됨을 표시
-      setIsScrolling(true);
-
-      // 스크롤 멈춤 감지
-      if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-
-      scrollTimeout.current = setTimeout(() => {
-        setIsScrolling(false);
-      }, 250);
+      // 50px 이상 스크롤되면 배경색 변경 상태 true
+      setIsScrolled(window.scrollY > 50);
     };
 
     window.addEventListener('scroll', handleScroll);
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-    };
-  }, [isHome]);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const navItems = [
     { name: '홈', href: '/' },
     { name: '이벤트', href: '/event' },
-    { name: '마우스이벤트(테스트용)', href: '/mouse-event' },
+    { name: '고객지원', href: '/support' },
+    // { name: '마우스이벤트(테스트용)', href: '/mouse-event' },
   ];
-
-  // 헤더가 보여야 하는 조건:
-  // 1. 홈이 아닐 때 (항상)
-  // 2. 홈이면서 최상단일 때 (isScrolled가 false일 때)
-  // 3. 홈이면서 스크롤을 멈췄을 때 (isScrolling이 false일 때)
-  const isVisible = !isHome || !isScrolled || !isScrolling;
 
   return (
     <div className="w-full">
       <header
         className={cn(
-          'w-full z-50 transition-all duration-500 ease-in-out',
+          'w-full z-50 transition-all duration-300 ease-in-out fixed top-0 left-0',
           isHome
-            ? cn(
-                'fixed top-0 left-0 text-white',
-                isScrolled
-                  ? 'bg-white text-black backdrop-blur-md'
-                  : 'bg-transparent',
-                isVisible
-                  ? 'translate-y-0 opacity-100'
-                  : '-translate-y-full opacity-0',
-              )
-            : 'relative bg-white text-black border-b border-gray-100',
+            ? isScrolled
+              ? 'bg-white text-black'
+              : 'bg-transparent text-white'
+            : 'sticky bg-white text-black border-b border-gray-100', // 홈이 아닐 때 기본 흰색
         )}
       >
-        <div
-          className={cn(
-            'max-w-7xl w-full mx-auto flex items-center justify-between h-20 px-30',
-          )}
-        >
+        <div className="max-w-7xl w-full mx-auto flex items-center justify-between h-20 px-30">
           {/* 왼쪽: 로고 + 메뉴 */}
           <div className="flex items-center gap-10">
             <Link href="/" className="flex items-center gap-2">
@@ -121,7 +88,7 @@ export default function Header() {
                         <span
                           className={cn(
                             'absolute -bottom-1 left-0 h-[2px] transition-all duration-300',
-                            isHome ? 'bg-white' : 'bg-black',
+                            isHome && !isScrolled ? 'bg-white' : 'bg-black',
                             isActive ? 'w-full' : 'w-0 group-hover:w-full',
                           )}
                         />
@@ -174,12 +141,6 @@ export default function Header() {
                 </Link>
               </div>
             )}
-            <Link
-              href="/support"
-              className="text-sm hover:text-current opacity-80 hover:opacity-100"
-            >
-              고객지원
-            </Link>
           </div>
         </div>
       </header>

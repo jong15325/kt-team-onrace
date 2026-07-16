@@ -1,21 +1,8 @@
-// services/queueService.ts
+// [DEPRECATED] 과거 대기열 Mock. 현재는 useQueue 훅이 ticketingService.getQueueStatus(실 API)를
+// 직접 폴링하므로 더 이상 사용하지 않는다. 호환을 위해 실 서비스로 위임한다.
+import { ticketingService } from './index';
 
-let currentPos = 100; // 초기 대기 번호
-const TOTAL = 500;
-
-export const getQueueStatus = async (eventId: string) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const decrease = Math.floor(Math.random() * 5) + 15; // 3~15명 랜덤 감소
-      currentPos = Math.max(0, currentPos - decrease);
-
-      resolve({
-        position: currentPos,
-        totalWaiting: TOTAL,
-        expectedWaitTime: Math.ceil(currentPos * 0.8), // 초 단위로 변경 (포맷팅은 UI에서)
-        status: currentPos === 0 ? 'passed' : 'waiting',
-        passToken: currentPos === 0 ? 'SECURE_TOKEN_ABC' : null,
-      });
-    }, 500);
-  });
+export const getQueueStatus = async (paceId: number) => {
+  const res = await ticketingService.getQueueStatus({ paceId });
+  return res.data;
 };

@@ -91,6 +91,9 @@ public class ApiLogAspect {
 	}
 
 	private void logRequestSummary(Optional<HttpServletRequest> requestOpt, MethodSignature signature) {
+		if (!log.isInfoEnabled()) {
+			return;
+		}
 		requestOpt.ifPresentOrElse(
 			request -> log.info("{} 요청정보: {} {} - req ip: {}",
 				PREFIX,
@@ -105,6 +108,9 @@ public class ApiLogAspect {
 	}
 
 	private void logRequestDetails(Optional<HttpServletRequest> requestOpt, ProceedingJoinPoint joinPoint) {
+		if (!log.isDebugEnabled()) {
+			return;
+		}
 		String params = loggingHelper.extractParameters(joinPoint, requestOpt.orElse(null));
 		if (!"no".equals(params)) {
 			log.debug("{} 파라미터: [{}]", PREFIX, params);

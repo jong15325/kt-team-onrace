@@ -24,25 +24,53 @@ export default function SignupForm() {
   const [showConfirmPassword, setShowConfirmPassword] =
     useState<boolean>(false);
 
+  // 이메일 중복확인 결과 메시지 (available: true=사용가능, false=불가/오류)
+  const [emailCheckMsg, setEmailCheckMsg] = useState<string>('');
+  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
+
   const setSignupData = useSignupStore((state) => state.setSignupData);
 
   // 이메일 중복 확인 API 호출
   const handleDuplicationEmail = async () => {
+    if (!email) {
+      setEmailAvailable(false);
+      setEmailCheckMsg('이메일을 입력해주세요.');
+      return;
+    }
     try {
+      // ApiResponse<Boolean>: data === true 이면 이미 사용 중
       const response = await authService.checkEmailAddress({ email });
-      console.log(response.data);
+      if (response.data === true) {
+        setEmailAvailable(false);
+        setEmailCheckMsg('이미 사용 중인 이메일입니다.');
+      } else {
+        setEmailAvailable(true);
+        setEmailCheckMsg('사용 가능한 이메일입니다.');
+      }
     } catch (error: any) {
-      throw new Error(error);
+      setEmailAvailable(false);
+      if (error?.response?.status === 429) {
+        setEmailCheckMsg('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
+      } else {
+        setEmailCheckMsg('이메일 확인 중 오류가 발생했습니다.');
+      }
     }
   };
 
   // 휴대폰 본인 인증 API 호출
   const handleCheckCode = async () => {
+    // 백엔드는 하이픈 없는 숫자만 허용 → 전 구간 정규화하여 인증키 일치 보장
+    const normalizedPhone = phoneNumber.replace(/\D/g, '');
+    if (!normalizedPhone) {
+      alert('휴대폰 번호를 입력해주세요.');
+      return;
+    }
     try {
-      const response = await authService.sendSmsCode({ phoneNumber });
-      console.log(response.data);
+      await authService.sendSmsCode({ phoneNumber: normalizedPhone });
+      alert('인증번호를 발송했습니다. (3분 이내 입력)');
     } catch (error: any) {
-      throw new Error(error);
+      console.error('SMS 발송 실패:', error?.response?.data ?? error?.message);
+      alert('인증번호 발송 중 오류가 발생했습니다.');
     }
   };
 
@@ -50,17 +78,24 @@ export default function SignupForm() {
     router.push('/login');
   };
   const handleSignup = async () => {
+    const normalizedPhone = phoneNumber.replace(/\D/g, '');
+    if (!password || password !== confirmPassword) {
+      alert('비밀번호가 일치하지 않습니다.');
+      return;
+    }
     try {
       const verifyResponse = await authService.verifySmsCode({
-        phoneNumber,
+        phoneNumber: normalizedPhone,
         code,
       });
       if (verifyResponse.success) {
-        setSignupData(email, password, phoneNumber);
+        // 정규화된(하이픈 없는) 번호로 저장 → 가입 요청과 인증키 일치
+        setSignupData(email, password, normalizedPhone);
         router.push('/signup/email-auth');
       }
     } catch (error: any) {
-      throw new Error(error);
+      console.error('휴대폰 인증 실패:', error?.response?.data ?? error?.message);
+      alert('휴대폰 인증에 실패했습니다. 인증번호를 확인해주세요.');
     }
   };
 
@@ -90,6 +125,15 @@ export default function SignupForm() {
             }
           />
         </div>
+        {emailCheckMsg && (
+          <p
+            className={`text-xs mb-4 px-1 ${
+              emailAvailable ? 'text-green-600' : 'text-red-500'
+            }`}
+          >
+            {emailCheckMsg}
+          </p>
+        )}
 
         <p className="text-sm mb-1">휴대폰번호</p>
         <div className="flex gap-2 space-y-2 mb-2">

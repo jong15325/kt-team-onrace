@@ -1,21 +1,22 @@
 import { NextResponse } from 'next/server';
-import axios from 'axios';
 import { handleApiError } from '@/utils/api';
-
-// 서버 측 전용 Axios 인스턴스
-const backendClient = axios.create({
-  baseURL: process.env.MAIN_API_URL,
-  headers: { 'Content-Type': 'application/json' },
-});
+import { queueServerClient, serverAuthHeader } from '@/utils/backend';
 
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-
     const queryData = Object.fromEntries(searchParams.entries());
 
-    const response = await backendClient.delete(`/queue/leave`, {
+    // 인증(Authorization) + 봇 통과 토큰(Bot-Clear-Token) 전달
+    const auth = await serverAuthHeader();
+    const botToken = request.headers.get('Bot-Clear-Token');
+
+    const response = await queueServerClient.delete(`/leave`, {
       params: queryData,
+      headers: {
+        ...auth,
+        ...(botToken ? { 'Bot-Clear-Token': botToken } : {}),
+      },
     });
 
     return NextResponse.json(response.data);

@@ -10,14 +10,28 @@ import { authService } from '@/features/auth/services';
 export default function LoginSuccess() {
   const router = useRouter();
   const [email, setEmail] = useState<string>('');
+  // 하단 인라인 메시지 (ok: true=성공/green, false=오류/red)
+  const [resultMsg, setResultMsg] = useState<string>('');
+  const [resultOk, setResultOk] = useState<boolean | null>(null);
 
   const handleSendPasswordResetLink = async () => {
+    if (!email) {
+      setResultOk(false);
+      setResultMsg('이메일을 입력해주세요.');
+      return;
+    }
     try {
-      const response = await authService.sendPasswordResetLink({ email });
-      console.log(response);
-      alert(response.message);
-    } catch (error) {
-      console.error(error);
+      await authService.sendPasswordResetLink({ email });
+      setResultOk(true);
+      setResultMsg('재설정 링크를 발송하였습니다, 메일함을 확인해주세요');
+    } catch (error: any) {
+      setResultOk(false);
+      // 쿨다운/요청횟수 초과 등 백엔드 비즈니스 에러 메시지 표시.
+      // (쿨다운·한도는 가입 여부와 무관하게 균일 적용되어 노출해도 이메일 열거 위험 없음)
+      setResultMsg(
+        error?.response?.data?.message ??
+          '에러가 발생하였습니다, 재시도 해주세요',
+      );
     }
   };
 
@@ -63,6 +77,16 @@ export default function LoginSuccess() {
             />
           </div>
         </div>
+
+        {resultMsg && (
+          <p
+            className={`text-xs mb-4 px-1 ${
+              resultOk ? 'text-green-600' : 'text-red-500'
+            }`}
+          >
+            {resultMsg}
+          </p>
+        )}
 
         <div className="flex items-center border border-gray-100 bg-gray-50 rounded-sm mb-6">
           <LuRefreshCcw size={25} className="m-4 text-font-medium" />

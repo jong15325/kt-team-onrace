@@ -1,15 +1,14 @@
 'use client';
 
-import { CourseDetails } from '@/features/event/types';
+import { useEventStore } from '@/features/event/store/useEventStore';
 import { useEffect, useState } from 'react';
 
-export function EventParticipationInfo({
-  courses = [],
-}: {
-  courses: CourseDetails[];
-}) {
+export function EventParticipationInfo() {
   // 하이드레이션 오류 방지를 위한 마운트 상태 관리
   const [mounted, setMounted] = useState(false);
+  const { eventDetails } = useEventStore();
+
+  const courses = eventDetails?.courses ?? [];
 
   // 컴포넌트가 마운트된 후에만 렌더링을 허용
   useEffect(() => {

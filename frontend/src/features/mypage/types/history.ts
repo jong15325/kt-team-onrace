@@ -1,6 +1,8 @@
 export interface EntriesHistory {
   id: number;
   eventId: number;
+
+  thumbnail: string;
   title: string;
   appType: 'LOTTERY' | 'FIRST_COME';
   status: 'IN_PROGRESS' | 'CLOSING_SOON' | 'READY' | 'END' | 'DRAW_COMPLETED';
@@ -15,6 +17,25 @@ export interface EntriesHistory {
   pace: string;
 }
 
+// 백엔드 GET /entries/my 응답(원시 enum/필드). 표시 문자열은 프론트에서 계산.
+export interface EntryHistoryItem {
+  entryId: number;
+  eventId: number;
+  title: string;
+  thumbnailUrl: string | null;
+  appType: 'LOTTERY' | 'FIRST_COME';
+  eventStatus: 'IN_PROGRESS' | 'CLOSING_SOON' | 'READY' | 'END' | 'DRAW_COMPLETED';
+  entryStatus: 'PRE_SAVED' | 'RESERVED' | 'APPLIED' | 'WON' | 'LOST';
+  createdAt: string;
+  eventAt: string;
+  appStartAt: string;
+  appEndAt: string;
+  resultAt: string | null;
+  venue: string;
+  courseName: string;
+  paceName: string;
+}
+
 export interface WaitingEntriesHistory {
   page: number;
   size: number;
@@ -27,6 +48,8 @@ export interface OrderHistory {
   id: string;
   eventId: number;
   title: string;
+
+  thumbnail: string;
   appType: 'LOTTERY' | 'FIRST_COME';
   status: 'IN_PROGRESS' | 'CLOSING_SOON' | 'READY' | 'END' | 'DRAW_COMPLETED';
   orderStatus: string;
@@ -112,7 +135,7 @@ export interface OrderDetailInfo {
     zipCode: '12345';
     address1: '서울시 강남구'; // address -> address1
     address2: '101동'; // detailAddress -> address2
-    recipientName: '홍길동';
+    recipientName: '김유저';
     recipientPhone: '01012345678';
     memo: '';
     isDefault: boolean;

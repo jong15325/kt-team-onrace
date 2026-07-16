@@ -23,6 +23,11 @@ public class EventStockService {
 	private final EntryProperties entryProperties;
 	private final StockMetrics stockMetrics;
 
+	private static final String CONFIRM_AND_DELETE_SCRIPT =
+		"redis.call('DEL', KEYS[1]); " +
+			"redis.call('INCR', KEYS[2]); " +
+			"return 1";
+
 	private static final String RESERVE_SCRIPT =
 		"if redis.call('EXISTS', KEYS[1]) == 1 then return -2 end " +
 			"local stock = redis.call('DECR', KEYS[2]) " +
@@ -118,6 +123,17 @@ public class EventStockService {
 		RAtomicLong stock = redissonClient.getAtomicLong(RedisKeyGenerator.confirmStockKey(paceId));
 		stock.incrementAndGet();
 		log.info("[STOCK] 재고 확정 paceId={}", paceId);
+	}
+
+	public void confirmAndDeleteReservation(Long paceId, Long userId) {
+		RScript script = redissonClient.getScript(StringCodec.INSTANCE);
+		script.eval(
+			RScript.Mode.READ_WRITE,
+			CONFIRM_AND_DELETE_SCRIPT,
+			RScript.ReturnType.INTEGER,
+			List.of(RedisKeyGenerator.reservationKey(paceId, userId), RedisKeyGenerator.confirmStockKey(paceId))
+		);
+		log.info("[STOCK] 예약 삭제 + 재고 확정 paceId={}, userId={}", paceId, userId);
 	}
 
 	public void cancelConfirmedStock(Long paceId) {

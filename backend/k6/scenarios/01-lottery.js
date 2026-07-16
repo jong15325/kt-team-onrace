@@ -9,6 +9,7 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import exec from 'k6/execution';
 import { Counter, Rate, Trend } from 'k6/metrics';
 import { batchLoginAll, authHeaders } from '../lib/auth.js';
 import { setupTestData } from '../lib/setup.js';
@@ -23,11 +24,17 @@ import {
 } from '../lib/config.js';
 
 // 커스텀 메트릭 (통일 네이밍)
-const applyOk        = new Counter('apply_ok');
-const applyDup       = new Counter('apply_dup');
-const unexpectedErr  = new Counter('unexpected_error');
-const errorRate      = new Rate('error_rate');
-const applyLatency   = new Trend('apply_latency');
+const applyOk          = new Counter('apply_ok');
+const applyDup         = new Counter('apply_dup');
+const unexpectedErr    = new Counter('unexpected_error');
+const errorRate        = new Rate('error_rate');
+const applyLatency     = new Trend('apply_latency');
+// 병목(hold) 구간 응답시간: active VU가 target의 95% 이상일 때만 기록
+// → ramp-up 초반/ramp-down 말미의 저부하 샘플을 자동 제외
+const peakApplyLatency = new Trend('peak_apply_latency');
+
+// 병목 판정 임계값 (target VU의 95%)
+const PEAK_VU_THRESHOLD = Math.max(1, Math.floor(VU_COUNT * 0.95));
 
 export const options = {
   setupTimeout: `${SETUP_TIMEOUT_SEC}s`,
@@ -108,6 +115,9 @@ export default function (data) {
   );
   const elapsed = Date.now() - start;
   applyLatency.add(elapsed);
+  if (exec.instance.vusActive >= PEAK_VU_THRESHOLD) {
+    peakApplyLatency.add(elapsed);
+  }
 
   if (res.status === 200) {
     const ok = check(res, {

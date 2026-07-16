@@ -2,6 +2,7 @@ export interface PaymentHistory {
   id: string;
   eventId: number;
   title: string;
+  thumbnail: string;
   appType: 'LOTTERY' | 'FIRST_COME';
   status: 'IN_PROGRESS' | 'CLOSING_SOON' | 'READY' | 'END' | 'DRAW_COMPLETED';
   orderStatus:

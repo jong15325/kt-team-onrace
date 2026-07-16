@@ -148,7 +148,8 @@ public class AuthService {
 			resetLoginFailCount(request.email());
 			loginHistoryService.recordSuccess(user.getId(), loginIp, loginAgent);
 
-			return new LoginResponse(accessToken, refreshToken, "Bearer", jwtProperties.getAccessTokenExpiration());
+			return new LoginResponse(user.getId(), user.getEmail(), user.getName(),
+					accessToken, refreshToken, "Bearer", jwtProperties.getAccessTokenExpiration());
 
 		} catch (BusinessException e) {
 			if (e.getErrorCode() == BusinessErrorCode.AUTH_NOT_FOUND_USER

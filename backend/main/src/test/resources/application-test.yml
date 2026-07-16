@@ -12,6 +12,13 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
 
+management:
+  endpoint:
+    health:
+      group:
+        readiness:
+          include: readinessState, db
+
 jwt:
   secret: test-secret-key-1234567890-1234567890-1234567890
   access-token-expiration: 300000

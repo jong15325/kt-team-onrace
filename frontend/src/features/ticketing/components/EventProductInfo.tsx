@@ -11,15 +11,9 @@ import {
 } from './details/product';
 import { Button } from '@/components/ui/button';
 import { LuChevronDown, LuChevronUp } from 'react-icons/lu';
-import { Event, EventDetails } from '@/features/event/types';
+import { useEventStore } from '@/features/event/store/useEventStore';
 
-export function EventProductInfo({
-  event,
-  eventDetails,
-}: {
-  event: Event;
-  eventDetails: EventDetails;
-}) {
+export function EventProductInfo() {
   // 하이드레이션 오류 방지를 위한 마운트 상태 관리
   const [mounted, setMounted] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -38,7 +32,7 @@ export function EventProductInfo({
     <div className="relative mb-6">
       <div className="space-y-10">
         {/* 코스 정보 섹션 */}
-        <EventCourse courses={eventDetails?.courses ?? []} />
+        <EventCourse />
 
         {/* 상세 설명 섹션 */}
         <div className="relative">
@@ -47,7 +41,7 @@ export function EventProductInfo({
               isExpanded ? 'max-h-[10000px]' : 'max-h-[1290px]'
             }`}
           >
-            <EventDetailsInfo detailImgList={eventDetails?.detailImg ?? []} />
+            <EventDetailsInfo />
           </div>
 
           {/* 그라데이션 및 버튼 영역 */}
@@ -84,7 +78,7 @@ export function EventProductInfo({
         </div>
 
         {/* 공지사항 섹션 */}
-        <EventNotice notice={eventDetails?.notice ?? ''} />
+        <EventNotice />
 
         <div className="my-8"></div>
 
@@ -92,12 +86,12 @@ export function EventProductInfo({
           <h2 className="text-xl font-bold text-gray-800">상품필수고시정보</h2>
         </div>
         {/* 기본 정보 */}
-        <EventBaseInfo event={event} />
+        <EventBaseInfo />
 
         <div className="my-8"></div>
 
         {/* 참가/구성 정보 */}
-        <EventParticipationInfo courses={eventDetails?.courses ?? []} />
+        <EventParticipationInfo />
       </div>
     </div>
   );

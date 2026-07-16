@@ -18,11 +18,15 @@ import {
   ModalTrigger,
 } from '@/components/ui/modal';
 import { authService } from '@/features/auth/services';
+import { useSignupStore } from '@/features/auth/store/useSignupStore';
+import { Term } from '@/features/auth/types';
 import PassModal from '@/features/auth/components/PassModal';
 
 export default function SignupForm() {
   const router = useRouter();
   const params = useParams();
+  const setTermAgreements = useSignupStore((state) => state.setTermAgreements);
+  const [terms, setTerms] = useState<Term[]>([]);
   const [agreements, setAgreements] = useState({
     terms: false,
     privacy: false,
@@ -74,6 +78,9 @@ export default function SignupForm() {
     const fetchData = async () => {
       try {
         const response = await authService.getTerms();
+        if (response.success && response.data) {
+          setTerms(response.data);
+        }
       } catch (error) {
         console.error('데이터 로드 실패:', error);
       }
@@ -83,6 +90,14 @@ export default function SignupForm() {
   }, []);
 
   const handleEvent = () => {
+    // 실제 약관 ID로 동의 정보 구성: 필수는 동의(진행 시점에 이미 체크됨),
+    // 선택(마케팅)은 사용자가 고른 값만 반영
+    const marketingAgreed = agreements.email || agreements.sms;
+    const built = terms.map((t) => ({
+      termVersionId: t.termVersionId,
+      agreed: t.required ? true : marketingAgreed,
+    }));
+    setTermAgreements(built);
     router.push('/signup/user-info');
   };
 
@@ -161,13 +176,13 @@ export default function SignupForm() {
               <div className="text-base font-bold text-black">선택 약관</div>
               <div className="flex items-center space-x-3">
                 <Checkbox
-                  id="marketing"
+                  id="marketing-email"
                   variant="primary"
                   checked={agreements.email}
                   onCheckedChange={() => handleCheckboxChange('email')}
                 />
                 <Label
-                  htmlFor="marketing"
+                  htmlFor="marketing-email"
                   className="text-sm cursor-pointer text-black"
                 >
                   마케팅 정보 수신 동의 (이메일)
@@ -175,13 +190,13 @@ export default function SignupForm() {
               </div>
               <div className="flex items-center space-x-3">
                 <Checkbox
-                  id="marketing"
+                  id="marketing-sms"
                   variant="primary"
                   checked={agreements.sms}
                   onCheckedChange={() => handleCheckboxChange('sms')}
                 />
                 <Label
-                  htmlFor="marketing"
+                  htmlFor="marketing-sms"
                   className="text-sm cursor-pointer text-black"
                 >
                   마케팅 정보 수신 동의 (SMS)

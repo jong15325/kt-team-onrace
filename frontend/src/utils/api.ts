@@ -26,6 +26,8 @@ export function handleApiError(error: any) {
   });
 
   // 클라이언트에 전달할 표준 에러 응답 생성
+  // 게이트웨이 필터 에러({error:"QUEUE_REQUIRED"|"CHALLENGE_REQUIRED"})는
+  // code 필드가 없으므로 error 필드를 code로 승격해 클라이언트가 분기할 수 있게 한다.
   const errorResponse = {
     success: false,
     message:
@@ -33,7 +35,7 @@ export function handleApiError(error: any) {
       (typeof backendError === 'string'
         ? backendError
         : '서버 통신 중 오류가 발생했습니다.'),
-    code: backendError?.code || 'UNKNOWN_ERROR',
+    code: backendError?.code || backendError?.error || 'UNKNOWN_ERROR',
     timestamp: backendError?.timestamp || new Date().toISOString(),
   };
 

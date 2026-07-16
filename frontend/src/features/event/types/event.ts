@@ -30,7 +30,8 @@ export interface Course {
 export interface Event {
   id: number;
   title: string;
-  type: 'MARATHON' | 'PLAY_RUN' | 'EXPERIENCE' | 'CLASS' | 'ETC';
+  // 백엔드 EventType 과 일치
+  type: 'MARATHON' | 'RUNNING' | 'TREASURE_HUNT' | 'COPS_AND_ROBBERS';
   appType: 'LOTTERY' | 'FIRST_COME';
   status: 'IN_PROGRESS' | 'CLOSING_SOON' | 'READY' | 'END' | 'DRAW_COMPLETED';
   eventAt: string; // ISO 8601
@@ -58,6 +59,23 @@ export interface Event {
  */
 export interface EventList {
   content: Event[];
-  nextCursor: number | null;
+  nextCursor: string | null; // 백엔드 CursorResponse.nextCursor (string)
   hasNext: boolean;
+}
+
+/**
+ * 이벤트 목록 검색 쿼리 (백엔드 EventSearchRequest 와 정합)
+ */
+export interface EventSearchQuery {
+  type?: string; // EventType
+  appType?: string; // EventAppType
+  status?: string; // EventStatus
+  region?: string; // EventRegion
+  keyword?: string;
+  minDistance?: number; // meters
+  maxDistance?: number; // meters
+  eventStartDate?: string; // yyyy-MM-dd
+  eventEndDate?: string; // yyyy-MM-dd
+  cursor?: string;
+  size?: number;
 }

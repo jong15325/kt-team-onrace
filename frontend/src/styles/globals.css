@@ -79,6 +79,10 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* --max-width: 1440px; 전체 최대 넓이 */
+  /* --grid-gutter: 20px; 컬럼 사이 간격 */
+  /* --container-padding: 20px; 양옆 최소 여백 */
 }
 
 .dark {

@@ -116,7 +116,7 @@ export default function MarathonDetailPage() {
   };
 
   const userData = {
-    name: '홍길동',
+    name: '김유저',
     birthDate: '1995.01.15',
     gender: '남성',
     phone: '010-1234-5678',
@@ -124,9 +124,9 @@ export default function MarathonDetailPage() {
   };
 
   const eventData = {
-    name: '한강 벚꽃 러닝 페스티벌',
-    eventDate: '2026.04.12 (토) 오전 9:00',
-    location: '서울 여의도 한강공원 입구',
+    name: '부산 바다 러닝 페스티벌',
+    eventDate: '2026.04.16 (목) 오전 9:00',
+    location: '부산',
   };
 
   const optionData = {

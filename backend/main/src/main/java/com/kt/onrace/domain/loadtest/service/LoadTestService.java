@@ -36,7 +36,6 @@ import lombok.extern.slf4j.Slf4j;
  * 모든 ID는 auto_increment — 환경에 무관하게 동작
  */
 @Slf4j
-@Profile("local")
 @Service
 @RequiredArgsConstructor
 public class LoadTestService {
@@ -71,12 +70,12 @@ public class LoadTestService {
 			int globalIndex = request.hotCourseIndex() * 5 + request.hotPaceIndex();
 			hotIndices = Set.of(globalIndex);
 			hotPaceCount = 1; // 고정 지정 시 1개로 오버라이드
-			log.info("[LoadTest] HOT 페이스 고정 지정 — courseIndex={}, paceIndex={}, globalIndex={}",
+			log.debug("[LoadTest] HOT 페이스 고정 지정 — courseIndex={}, paceIndex={}, globalIndex={}",
 				request.hotCourseIndex(), request.hotPaceIndex(), globalIndex);
 		} else {
 			hotIndices = pickRandomHotIndices(hotPaceCount);
 		}
-		log.info("[LoadTest] HOT 페이스 인덱스: {}", hotIndices);
+		log.debug("[LoadTest] HOT 페이스 인덱스: {}", hotIndices);
 
 		// 재고 산정 (직접 지정 시 해당 값 사용, 미지정 시 자동 계산)
 		int totalStock = request.totalStock() != null
@@ -85,12 +84,14 @@ public class LoadTestService {
 		int hotTotalStock = (int)(totalStock * hotStockRatio);
 		int otherTotalStock = totalStock - hotTotalStock;
 		int hotStockEach = Math.max(1, hotTotalStock / hotPaceCount);
+		int hotRemainder = hotTotalStock - hotStockEach * hotPaceCount;          // 정수 나눗셈 나머지 보정
 		int otherPaceCount = TOTAL_PACES - hotPaceCount;
 		int otherStockEach = otherPaceCount > 0 ? Math.max(1, otherTotalStock / otherPaceCount) : 0;
+		int otherRemainder = otherPaceCount > 0 ? otherTotalStock - otherStockEach * otherPaceCount : 0;  // 나머지 보정
 
-		log.info("[LoadTest] 셋업 시작 — totalUsers={}, competitionRatio={}, hotPaceCount={}, hotStockRatio={}",
+		log.debug("[LoadTest] 셋업 시작 — totalUsers={}, competitionRatio={}, hotPaceCount={}, hotStockRatio={}",
 			totalUsers, competitionRatio, hotPaceCount, hotStockRatio);
-		log.info("[LoadTest] 재고 산정 — totalStock={}, hotStockEach={} x {}개, otherStockEach={} x {}개",
+		log.debug("[LoadTest] 재고 산정 — totalStock={}, hotStockEach={} x {}개, otherStockEach={} x {}개",
 			totalStock, hotStockEach, hotPaceCount, otherStockEach, otherPaceCount);
 
 		// 1. 유저 셋업 (멱등)
@@ -113,7 +114,7 @@ public class LoadTestService {
 			long lotteryId = insertEvent("k6 부하테스트 - 응모신청", "LOTTERY", false, "'2026-12-31 23:59:59'");
 			eventIds.put(SCENARIO_LOTTERY, lotteryId);
 			paceMap.put(String.valueOf(lotteryId),
-				setupCoursesAndPaces(lotteryId, hotIndices, hotStockEach, otherStockEach));
+				setupCoursesAndPaces(lotteryId, hotIndices, hotStockEach, hotRemainder, otherStockEach, otherRemainder));
 			insertSalesInfo(lotteryId, "2026-서울-0001");
 		}
 
@@ -122,7 +123,7 @@ public class LoadTestService {
 			long fcNoQueueId = insertEvent("k6 부하테스트 - 선착순(대기열X)", "FIRST_COME", false, "NULL");
 			eventIds.put(SCENARIO_FC_NO_QUEUE, fcNoQueueId);
 			paceMap.put(String.valueOf(fcNoQueueId),
-				setupCoursesAndPaces(fcNoQueueId, hotIndices, hotStockEach, otherStockEach));
+				setupCoursesAndPaces(fcNoQueueId, hotIndices, hotStockEach, hotRemainder, otherStockEach, otherRemainder));
 			insertSalesInfo(fcNoQueueId, "2026-서울-0002");
 		}
 
@@ -131,7 +132,7 @@ public class LoadTestService {
 			long fcWithQueueId = insertEvent("k6 부하테스트 - 선착순(대기열O)", "FIRST_COME", true, "NULL");
 			eventIds.put(SCENARIO_FC_WITH_QUEUE, fcWithQueueId);
 			paceMap.put(String.valueOf(fcWithQueueId),
-				setupCoursesAndPaces(fcWithQueueId, hotIndices, hotStockEach, otherStockEach));
+				setupCoursesAndPaces(fcWithQueueId, hotIndices, hotStockEach, hotRemainder, otherStockEach, otherRemainder));
 			insertSalesInfo(fcWithQueueId, "2026-서울-0003");
 		}
 
@@ -152,7 +153,7 @@ public class LoadTestService {
 			preSaveCount = batchPreSave(request.preSaveRatio(), totalUsers, eventIds, paceMap);
 		}
 
-		log.info("[LoadTest] 셋업 완료 — eventIds={}, totalStock={}, preSaveCount={}", eventIds, actualTotalStock, preSaveCount);
+		log.debug("[LoadTest] 셋업 완료 — eventIds={}, totalStock={}, preSaveCount={}", eventIds, actualTotalStock, preSaveCount);
 
 		return LoadTestSetupResponse.builder()
 			.userCount(TOTAL_USERS)
@@ -276,11 +277,11 @@ public class LoadTestService {
 		);
 
 		if (existing != null && existing >= TOTAL_USERS) {
-			log.info("[LoadTest] 유저 이미 존재 ({}명), 스킵", existing);
+			log.debug("[LoadTest] 유저 이미 존재 ({}명), 스킵", existing);
 			return true;
 		}
 
-		log.info("[LoadTest] 유저 등록 시작 (기존 {}명 → {}명)", existing, TOTAL_USERS);
+		log.debug("[LoadTest] 유저 등록 시작 (기존 {}명 → {}명)", existing, TOTAL_USERS);
 
 		// 기존 부분 데이터 정리
 		jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
@@ -334,7 +335,7 @@ public class LoadTestService {
 			WHERE u.email LIKE 'k6user%@test.com'
 			""");
 
-		log.info("[LoadTest] 유저 등록 완료 ({}명)", TOTAL_USERS);
+		log.debug("[LoadTest] 유저 등록 완료 ({}명)", TOTAL_USERS);
 		return false;
 	}
 
@@ -347,7 +348,7 @@ public class LoadTestService {
 			DELETE FROM entry
 			WHERE user_id IN (SELECT id FROM user WHERE email LIKE 'k6user%@test.com')
 			""");
-		log.info("[LoadTest] 이전 테스트 entry 삭제 — {}건", deleted);
+		log.debug("[LoadTest] 이전 테스트 entry 삭제 — {}건", deleted);
 	}
 
 	// ================================================================
@@ -360,12 +361,12 @@ public class LoadTestService {
 		);
 
 		if (eventIds.isEmpty()) {
-			log.info("[LoadTest] 기존 테스트 이벤트 없음, 정리 스킵");
+			log.debug("[LoadTest] 기존 테스트 이벤트 없음, 정리 스킵");
 			return;
 		}
 
 		String ids = eventIds.stream().map(String::valueOf).collect(Collectors.joining(","));
-		log.info("[LoadTest] 기존 테스트 이벤트 정리: {}", ids);
+		log.debug("[LoadTest] 기존 테스트 이벤트 정리: {}", ids);
 
 		jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
 		try {
@@ -395,7 +396,7 @@ public class LoadTestService {
 			jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
 		}
 
-		log.info("[LoadTest] 이벤트 데이터 정리 완료");
+		log.debug("[LoadTest] 이벤트 데이터 정리 완료");
 	}
 
 	// ================================================================
@@ -422,7 +423,7 @@ public class LoadTestService {
 	// ================================================================
 
 	private PaceMapEntry setupCoursesAndPaces(long eventId, Set<Integer> hotIndices,
-		int hotStockEach, int otherStockEach) {
+		int hotStockEach, int hotRemainder, int otherStockEach, int otherRemainder) {
 		// 코스 3개 등록 (풀코스, 하프코스, 10km 순서)
 		insertCourses(eventId);
 		List<Long> courseIds = jdbcTemplate.queryForList(
@@ -433,6 +434,8 @@ public class LoadTestService {
 		List<PaceRef> otherPaces = new ArrayList<>();
 
 		int globalPaceIndex = 0;
+		int hotAssigned = 0;    // 나머지 분배 추적용
+		int otherAssigned = 0;
 
 		for (int i = 0; i < courseIds.size(); i++) {
 			long courseId = courseIds.get(i);
@@ -446,7 +449,14 @@ public class LoadTestService {
 			for (int j = 0; j < paceIds.size(); j++) {
 				long paceId = paceIds.get(j);
 				boolean isHot = hotIndices.contains(globalPaceIndex);
-				int stock = isHot ? hotStockEach : otherStockEach;
+				int stock;
+				if (isHot) {
+					stock = hotStockEach + (hotAssigned < hotRemainder ? 1 : 0);
+					hotAssigned++;
+				} else {
+					stock = otherStockEach + (otherAssigned < otherRemainder ? 1 : 0);
+					otherAssigned++;
+				}
 
 				insertStock(paceId, stock);
 				updatePaceCapacity(paceId, stock);
@@ -593,7 +603,7 @@ public class LoadTestService {
 			}
 		}
 
-		log.info("[LoadTest] 사전정보 저장 완료 — {}건 ({}명 x {}이벤트)",
+		log.debug("[LoadTest] 사전정보 저장 완료 — {}건 ({}명 x {}이벤트)",
 			totalInserted, userIds.size(), eventIds.size());
 		return totalInserted;
 	}
@@ -603,7 +613,7 @@ public class LoadTestService {
 	// ================================================================
 
 	private void flushRedis() {
-		log.info("[LoadTest] Redis flushDB 실행");
+		log.debug("[LoadTest] Redis flushDB 실행");
 		redissonClient.getKeys().flushdb();
 	}
 }

@@ -8,11 +8,20 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { Counter, Rate, Trend } from 'k6/metrics';
 import { batchLoginAll, authHeaders } from '../lib/auth.js';
 import { setupTestData } from '../lib/setup.js';
+import { buildSummaryOutput } from '../lib/report.js';
 import { BASE_URL } from '../lib/config.js';
 
 const SMOKE_VU = 5;
+
+// 커스텀 메트릭 (다른 시나리오와 네이밍 통일 — apply_ok / unexpected_error / error_rate / apply_latency)
+// 스모크 테스트에서는 "환경 검증 성공/실패"로 재해석됨
+const applyOk       = new Counter('apply_ok');         // 모든 check 통과
+const unexpectedErr = new Counter('unexpected_error'); // 하나라도 실패
+const errorRate     = new Rate('error_rate');
+const applyLatency  = new Trend('apply_latency');
 
 export const options = {
   vus: SMOKE_VU,
@@ -31,12 +40,20 @@ export function setup() {
 }
 
 export default function (data) {
+  const iterStart = Date.now();
+  let allOk = true;
+
   // 1. 사전 로그인 토큰 획득
   const token = data.tokens[String(__VU)];
   const loginOk = check(token, {
     '로그인 성공': (t) => t != null,
   });
-  if (!loginOk) return;
+  if (!loginOk) {
+    unexpectedErr.add(1);
+    errorRate.add(true);
+    applyLatency.add(Date.now() - iterStart);
+    return;
+  }
 
   const headers = authHeaders(token);
 
@@ -51,9 +68,10 @@ export default function (data) {
       headers: headers,
       tags: { name: 'event_detail' },
     });
-    check(res, {
+    const ok = check(res, {
       [`이벤트 ${eid} 조회 성공`]: (r) => r.status === 200,
     });
+    if (!ok) allOk = false;
   }
 
   // 3. 재고 확인 (paceMap에서 HOT paceId 동적 추출)
@@ -68,10 +86,30 @@ export default function (data) {
       `${BASE_URL}/main/events/${fcNoQueueId}/entries/stock-check?paceId=${hotPaceId}`,
       { headers: headers, tags: { name: 'stock_check' } }
     );
-    check(stockRes, {
+    const ok = check(stockRes, {
       '재고 조회 성공': (r) => r.status === 200,
     });
+    if (!ok) allOk = false;
+  }
+
+  // 최종 결과 집계
+  applyLatency.add(Date.now() - iterStart);
+  if (allOk) {
+    applyOk.add(1);
+    errorRate.add(false);
+  } else {
+    unexpectedErr.add(1);
+    errorRate.add(true);
   }
 
   sleep(1);
+}
+
+// ── handleSummary: 통합 리포트 출력 (01~04와 동일한 템플릿 사용) ──
+export function handleSummary(data) {
+  return buildSummaryOutput(data, {
+    testType: 'LOAD',
+    flow: 'SMOKE',
+    vuCount: SMOKE_VU,
+  });
 }

@@ -15,6 +15,7 @@ export interface EventHistory {
     | '신청 완료'
     | '신청 불가';
   date: string;
+  thumbnail: string;
   eventAt: string;
   appStartAt: string;
   appEndAt: string;

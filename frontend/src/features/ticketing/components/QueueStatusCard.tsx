@@ -16,6 +16,25 @@ export const QueueStatusCard = ({
 
   const isPassed = status.position <= 0;
 
+  // 예상 대기시간: 백엔드 estimatedWaitMs(ms) 우선, 없으면 expectedWaitTime(초)
+  const waitSeconds =
+    status.estimatedWaitMs != null
+      ? Math.ceil(status.estimatedWaitMs / 1000)
+      : (status.expectedWaitTime ?? 0);
+
+  const formatTime = (seconds: number) => {
+    if (!seconds || seconds < 0) return '00:00';
+
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+
+    // padStart를 사용하여 2자리 숫자로 맞추고, 부족하면 앞에 '0'을 채웁니다.
+    const displayMins = String(mins).padStart(2, '0');
+    const displaySecs = String(secs).padStart(2, '0');
+
+    return `${displayMins}:${displaySecs}`;
+  };
+
   return (
     <div className="w-full max-w-xl p-8 bg-white ">
       <div className="text-center mb-8">
@@ -37,11 +56,11 @@ export const QueueStatusCard = ({
         {/* 0.1초마다 업데이트되는 프로그래스 바 */}
         <QueueProgressBar progress={progress} />
 
-        <div className="flex items-center text-base text-font-medium mb-2">
+        <div className="flex items-center text-base text-font-medium mb-5">
           <IoMdTime className="mr-2" />
           <span className="mr-3">예상 대기 시간</span>
           <span className="font-bold text-black">
-            {isPassed ? '00:00' : status.expectedWaitTime}
+            {isPassed ? '00:00' : formatTime(waitSeconds)}
           </span>
         </div>
 

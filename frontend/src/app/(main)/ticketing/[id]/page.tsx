@@ -12,23 +12,26 @@ import {
 import { EventThumbnail } from '@/features/ticketing/components';
 import { EntryConfirmModal } from '@/features/ticketing/components/details/entry';
 import { useEventStore } from '@/features/event/store/useEventStore';
-import { EventDetails } from '@/features/event/types';
 import { useParams } from 'next/navigation';
 import { eventService } from '@/features/event/services';
 import { useDetailedTracker } from '@/features/ticketing/hooks/useDetailedTracker';
 import { collectFingerprint } from '@/lib/fingerprint';
+import { ActionCardPage } from '@/features/ticketing/components/details/entry/ActionCardPage';
+import { ResultCardPage } from '@/features/ticketing/components/details/entry/ResultCardPage';
+import { EventAdminPanel } from '@/features/ticketing/components/EventAdminPanel';
 
 export default function MarathonDetailPage() {
   const params = useParams();
-  const { event } = useEventStore();
+  const { event, eventDetails, setEventDetails, setEventOverview } =
+    useEventStore();
 
   const [mounted, setMounted] = useState<boolean>(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState('product');
-  const [eventDetails, setEventDetails] = useState<EventDetails>();
-
   const [minDistance, setMinDistance] = useState(10);
+  const [actionCard, setActionCard] = useState<boolean>(false);
+  const [resultCard, setResultCard] = useState<boolean>(false);
 
   const { isRecording, logs, startTracking, stopTracking, getFinalData } =
     useDetailedTracker();
@@ -101,14 +104,19 @@ export default function MarathonDetailPage() {
       try {
         if (event) {
           const eventId = String(params.id);
-          const response = await eventService.getEventById(eventId);
-          console.log('event', event);
-          console.log('details', response.data);
+          const response = await eventService.getEventDetails(eventId);
 
-          setEventDetails((prev) => ({
-            ...prev,
-            ...response.data,
-          }));
+          if (response.success) {
+            setEventDetails(response.data);
+          }
+
+          // 참여 정보(이미 신청 여부/상태) 조회 — 상세 진입(뷰) 시점
+          eventService
+            .getEventOverview(eventId)
+            .then((res) => {
+              if (res.success) setEventOverview(res.data);
+            })
+            .catch(() => {});
         }
       } catch (error) {
         console.error('데이터 로드 실패:', error);
@@ -137,12 +145,12 @@ export default function MarathonDetailPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-10 pt-8 pb-0">
+    <div className="max-w-7xl mx-auto px-30 pt-8 pb-0 ">
       {eventDetails && (
         <div className="flex flex-col lg:flex-row gap-8 ">
           {/* 좌측: 대회 상세 정보 영역 */}
           <div className="flex-1">
-            <EventThumbnail thumbnailImg={eventDetails?.thumbnailImg ?? []} />
+            <EventThumbnail />
 
             {/* 구분선 */}
             <div className="py-2"></div>
@@ -185,10 +193,7 @@ export default function MarathonDetailPage() {
                 <div className="p-2">
                   {/* 상품정보 탭 */}
                   <div className={activeTab === 'product' ? 'block' : 'hidden'}>
-                    <EventProductInfo
-                      event={event}
-                      eventDetails={eventDetails}
-                    />
+                    <EventProductInfo />
                   </div>
                   {/* 판매정보 탭 */}
                   <div className={activeTab === 'sales' ? 'block' : 'hidden'}>
@@ -200,15 +205,34 @@ export default function MarathonDetailPage() {
           </div>
 
           {/* 우측: 참여 정보 카드 (Sidebar) */}
-          <div className="w-full lg:w-[380px]">
-            <div className="sticky top-5">
+          <div className="w-full lg:w-[360px]">
+            {/* [데모/관리] 대기열 토글 + 재고/신청 초기화 */}
+            <EventAdminPanel eventId={String(params.id)} />
+            <div
+              className={cn(!actionCard && !resultCard && 'sticky top-5 h-fit')}
+            >
               <EventEntryInfo
-                event={event}
-                eventDetails={eventDetails}
-                setIsUserModalOpen={setIsUserModalOpen}
-                onStart={handleStart}
+                actionCard={actionCard}
+                setActionCard={setActionCard}
+                resultCard={resultCard}
+                setResultCard={setResultCard}
               />
             </div>
+            {actionCard && (
+              <div className={cn(actionCard && 'sticky top-5 h-fit')}>
+                <ActionCardPage
+                  actionCard={actionCard}
+                  setActionCard={setActionCard}
+                  setIsUserModalOpen={setIsUserModalOpen}
+                  onStart={handleStart}
+                />
+              </div>
+            )}
+            {resultCard && (
+              <div className={cn(resultCard && 'sticky top-5 h-fit')}>
+                <ResultCardPage setResultCard={setResultCard} />
+              </div>
+            )}
           </div>
 
           {/* 사용자 정보 확인 Modal */}
